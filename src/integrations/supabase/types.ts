@@ -122,6 +122,177 @@ export type Database = {
         }
         Relationships: []
       }
+      chatbot_views: {
+        Row: {
+          chatbot_id: string
+          id: string
+          viewed_at: string
+          viewer_id: string | null
+        }
+        Insert: {
+          chatbot_id: string
+          id?: string
+          viewed_at?: string
+          viewer_id?: string | null
+        }
+        Update: {
+          chatbot_id?: string
+          id?: string
+          viewed_at?: string
+          viewer_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "chatbot_views_chatbot_id_fkey"
+            columns: ["chatbot_id"]
+            isOneToOne: false
+            referencedRelation: "chatbots"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      chatbots: {
+        Row: {
+          avatar_url: string | null
+          backstory: string | null
+          created_at: string
+          creator_id: string
+          description: string
+          dialogue_style: string | null
+          gender: string | null
+          id: string
+          intro_message: string
+          is_public: boolean | null
+          name: string
+          tags: string[] | null
+          total_views: number | null
+          updated_at: string
+        }
+        Insert: {
+          avatar_url?: string | null
+          backstory?: string | null
+          created_at?: string
+          creator_id: string
+          description: string
+          dialogue_style?: string | null
+          gender?: string | null
+          id?: string
+          intro_message: string
+          is_public?: boolean | null
+          name: string
+          tags?: string[] | null
+          total_views?: number | null
+          updated_at?: string
+        }
+        Update: {
+          avatar_url?: string | null
+          backstory?: string | null
+          created_at?: string
+          creator_id?: string
+          description?: string
+          dialogue_style?: string | null
+          gender?: string | null
+          id?: string
+          intro_message?: string
+          is_public?: boolean | null
+          name?: string
+          tags?: string[] | null
+          total_views?: number | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      conversations: {
+        Row: {
+          chatbot_id: string
+          created_at: string
+          id: string
+          last_message_at: string
+          user_id: string
+        }
+        Insert: {
+          chatbot_id: string
+          created_at?: string
+          id?: string
+          last_message_at?: string
+          user_id: string
+        }
+        Update: {
+          chatbot_id?: string
+          created_at?: string
+          id?: string
+          last_message_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "conversations_chatbot_id_fkey"
+            columns: ["chatbot_id"]
+            isOneToOne: false
+            referencedRelation: "chatbots"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      messages: {
+        Row: {
+          content: string
+          conversation_id: string
+          created_at: string
+          id: string
+          role: string
+        }
+        Insert: {
+          content: string
+          conversation_id: string
+          created_at?: string
+          id?: string
+          role: string
+        }
+        Update: {
+          content?: string
+          conversation_id?: string
+          created_at?: string
+          id?: string
+          role?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "messages_conversation_id_fkey"
+            columns: ["conversation_id"]
+            isOneToOne: false
+            referencedRelation: "conversations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      profiles: {
+        Row: {
+          avatar_url: string | null
+          bio: string | null
+          created_at: string
+          id: string
+          updated_at: string
+          username: string
+        }
+        Insert: {
+          avatar_url?: string | null
+          bio?: string | null
+          created_at?: string
+          id: string
+          updated_at?: string
+          username: string
+        }
+        Update: {
+          avatar_url?: string | null
+          bio?: string | null
+          created_at?: string
+          id?: string
+          updated_at?: string
+          username?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
