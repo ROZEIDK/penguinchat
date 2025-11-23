@@ -5,6 +5,17 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Search, LogIn } from "lucide-react";
 import { ChatbotCard } from "@/components/ChatbotCard";
+import { useToast } from "@/hooks/use-toast";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
 interface Chatbot {
   id: string;
@@ -22,7 +33,10 @@ export default function Discover() {
   const [searchQuery, setSearchQuery] = useState("");
   const [user, setUser] = useState<any>(null);
   const [userProfile, setUserProfile] = useState<any>(null);
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [chatbotToDelete, setChatbotToDelete] = useState<string | null>(null);
   const navigate = useNavigate();
+  const { toast } = useToast();
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
@@ -83,6 +97,36 @@ export default function Discover() {
     return matchesSearch && matchesMatureFilter;
   });
 
+  const handleDeleteRequest = (chatbotId: string) => {
+    setChatbotToDelete(chatbotId);
+    setDeleteDialogOpen(true);
+  };
+
+  const handleDeleteConfirm = async () => {
+    if (!chatbotToDelete) return;
+
+    try {
+      const { error } = await supabase
+        .from("chatbots")
+        .delete()
+        .eq("id", chatbotToDelete);
+
+      if (error) throw error;
+
+      toast({ title: "Chatbot deleted successfully!" });
+      fetchChatbots(); // Refresh the list
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: error.message,
+        variant: "destructive",
+      });
+    } finally {
+      setDeleteDialogOpen(false);
+      setChatbotToDelete(null);
+    }
+  };
+
   return (
     <div className="min-h-screen p-6">
       <div className="max-w-7xl mx-auto">
@@ -124,11 +168,38 @@ export default function Discover() {
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {filteredChatbots.map((bot) => (
-              <ChatbotCard key={bot.id} chatbot={bot} />
+              <ChatbotCard 
+                key={bot.id} 
+                chatbot={bot} 
+                currentUserId={user?.id}
+                onDelete={handleDeleteRequest}
+              />
             ))}
           </div>
         )}
       </div>
+
+      {/* Delete Confirmation Dialog */}
+      <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Chatbot</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to delete this chatbot? This action cannot be undone.
+              All conversations with this chatbot will be deleted.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleDeleteConfirm}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

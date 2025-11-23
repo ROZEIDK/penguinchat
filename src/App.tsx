@@ -7,6 +7,7 @@ import { Layout } from "@/components/Layout";
 import Index from "./pages/Discover";
 import Auth from "./pages/Auth";
 import CreateChatbot from "./pages/CreateChatbot";
+import EditChatbot from "./pages/EditChatbot";
 import Notifications from "./pages/Notifications";
 import Chats from "./pages/Chats";
 import Profile from "./pages/Profile";
@@ -26,6 +27,7 @@ const App = () => (
             <Route path="/" element={<Index />} />
             <Route path="/auth" element={<Auth />} />
             <Route path="/create" element={<CreateChatbot />} />
+            <Route path="/edit/:chatbotId" element={<EditChatbot />} />
             <Route path="/notifications" element={<Notifications />} />
             <Route path="/chats" element={<Chats />} />
             <Route path="/profile" element={<Profile />} />
