@@ -1,7 +1,8 @@
 import { useNavigate } from "react-router-dom";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Eye } from "lucide-react";
+import { Eye, Edit, Trash2 } from "lucide-react";
+import { Button } from "@/components/ui/button";
 
 interface ChatbotCardProps {
   chatbot: {
@@ -11,15 +12,27 @@ interface ChatbotCardProps {
     avatar_url: string | null;
     tags: string[];
     total_views: number;
+    creator_id: string;
   };
+  currentUserId?: string;
+  onDelete?: (id: string) => void;
 }
 
-export function ChatbotCard({ chatbot }: ChatbotCardProps) {
+export function ChatbotCard({ chatbot, currentUserId, onDelete }: ChatbotCardProps) {
   const navigate = useNavigate();
+  const isOwner = currentUserId && chatbot.creator_id === currentUserId;
+
+  const handleCardClick = (e: React.MouseEvent) => {
+    // Don't navigate if clicking on action buttons
+    if ((e.target as HTMLElement).closest('button')) {
+      return;
+    }
+    navigate(`/chat/${chatbot.id}`);
+  };
 
   return (
     <Card
-      onClick={() => navigate(`/chat/${chatbot.id}`)}
+      onClick={handleCardClick}
       className="group cursor-pointer bg-gradient-card border-border hover:border-primary/50 transition-all duration-300 hover:shadow-glow overflow-hidden"
     >
       <div className="aspect-square relative overflow-hidden">
@@ -34,6 +47,32 @@ export function ChatbotCard({ chatbot }: ChatbotCardProps) {
             <span className="text-6xl font-bold text-primary-foreground">
               {chatbot.name[0]}
             </span>
+          </div>
+        )}
+        {isOwner && (
+          <div className="absolute top-2 right-2 flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+            <Button
+              size="icon"
+              variant="secondary"
+              onClick={(e) => {
+                e.stopPropagation();
+                navigate(`/edit/${chatbot.id}`);
+              }}
+              className="h-8 w-8"
+            >
+              <Edit className="h-4 w-4" />
+            </Button>
+            <Button
+              size="icon"
+              variant="destructive"
+              onClick={(e) => {
+                e.stopPropagation();
+                onDelete?.(chatbot.id);
+              }}
+              className="h-8 w-8"
+            >
+              <Trash2 className="h-4 w-4" />
+            </Button>
           </div>
         )}
       </div>
