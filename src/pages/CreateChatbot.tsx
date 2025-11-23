@@ -23,6 +23,7 @@ export default function CreateChatbot() {
     gender: "",
     intro_message: "",
     is_public: true,
+    is_mature: false,
     backstory: "",
     dialogue_style: "",
     avatar_url: "",
@@ -275,6 +276,17 @@ export default function CreateChatbot() {
                 checked={formData.is_public}
                 onCheckedChange={(checked) =>
                   setFormData({ ...formData, is_public: checked })
+                }
+              />
+            </div>
+
+            <div className="flex items-center justify-between">
+              <Label htmlFor="is_mature">Mature Content</Label>
+              <Switch
+                id="is_mature"
+                checked={formData.is_mature}
+                onCheckedChange={(checked) =>
+                  setFormData({ ...formData, is_mature: checked })
                 }
               />
             </div>
