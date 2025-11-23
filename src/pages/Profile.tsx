@@ -7,6 +7,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
 import { Loader2, Upload, LogOut, X } from "lucide-react";
+import { Switch } from "@/components/ui/switch";
 
 export default function Profile() {
   const [user, setUser] = useState<any>(null);
@@ -21,6 +22,7 @@ export default function Profile() {
     username: "",
     bio: "",
     avatar_url: "",
+    show_mature_content: false,
   });
 
   useEffect(() => {
@@ -47,6 +49,7 @@ export default function Profile() {
         username: data.username || "",
         bio: data.bio || "",
         avatar_url: data.avatar_url || "",
+        show_mature_content: data.show_mature_content || false,
       });
     }
   };
@@ -211,6 +214,16 @@ export default function Profile() {
                       rows={3}
                     />
                   </div>
+                  <div className="flex items-center justify-between">
+                    <Label htmlFor="show_mature">Show Mature Content</Label>
+                    <Switch
+                      id="show_mature"
+                      checked={formData.show_mature_content}
+                      onCheckedChange={(checked) =>
+                        setFormData({ ...formData, show_mature_content: checked })
+                      }
+                    />
+                  </div>
                 </div>
               ) : (
                 <>
@@ -218,6 +231,11 @@ export default function Profile() {
                     {profile.username}
                   </h2>
                   <p className="text-muted-foreground">{profile.bio || "No bio yet"}</p>
+                  <div className="flex items-center gap-2 mt-3">
+                    <span className="text-sm text-muted-foreground">
+                      Mature Content: {profile.show_mature_content ? "On" : "Off"}
+                    </span>
+                  </div>
                 </>
               )}
             </div>
@@ -247,6 +265,7 @@ export default function Profile() {
                       username: profile.username || "",
                       bio: profile.bio || "",
                       avatar_url: profile.avatar_url || "",
+                      show_mature_content: profile.show_mature_content || false,
                     });
                   }}
                   variant="outline"

@@ -14,22 +14,30 @@ interface Chatbot {
   tags: string[];
   total_views: number;
   creator_id: string;
+  is_mature: boolean;
 }
 
 export default function Discover() {
   const [chatbots, setChatbots] = useState<Chatbot[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
   const [user, setUser] = useState<any>(null);
+  const [userProfile, setUserProfile] = useState<any>(null);
   const navigate = useNavigate();
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
       setUser(session?.user || null);
+      if (session?.user) {
+        fetchUserProfile(session.user.id);
+      }
     });
 
     const { data: authListener } = supabase.auth.onAuthStateChange(
       (_event, session) => {
         setUser(session?.user || null);
+        if (session?.user) {
+          fetchUserProfile(session.user.id);
+        }
       }
     );
 
@@ -39,6 +47,18 @@ export default function Discover() {
       authListener.subscription.unsubscribe();
     };
   }, []);
+
+  const fetchUserProfile = async (userId: string) => {
+    const { data } = await supabase
+      .from("profiles")
+      .select("show_mature_content")
+      .eq("id", userId)
+      .single();
+    
+    if (data) {
+      setUserProfile(data);
+    }
+  };
 
   const fetchChatbots = async () => {
     const { data, error } = await supabase
@@ -52,11 +72,16 @@ export default function Discover() {
     }
   };
 
-  const filteredChatbots = chatbots.filter((bot) =>
-    bot.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    bot.description.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    bot.tags.some((tag) => tag.toLowerCase().includes(searchQuery.toLowerCase()))
-  );
+  const filteredChatbots = chatbots.filter((bot) => {
+    const matchesSearch = bot.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      bot.description.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      bot.tags.some((tag) => tag.toLowerCase().includes(searchQuery.toLowerCase()));
+    
+    const showMature = userProfile?.show_mature_content ?? false;
+    const matchesMatureFilter = !bot.is_mature || showMature;
+    
+    return matchesSearch && matchesMatureFilter;
+  });
 
   return (
     <div className="min-h-screen p-6">

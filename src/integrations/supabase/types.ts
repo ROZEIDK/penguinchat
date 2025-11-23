@@ -162,6 +162,7 @@ export type Database = {
           gender: string | null
           id: string
           intro_message: string
+          is_mature: boolean | null
           is_public: boolean | null
           name: string
           tags: string[] | null
@@ -178,6 +179,7 @@ export type Database = {
           gender?: string | null
           id?: string
           intro_message: string
+          is_mature?: boolean | null
           is_public?: boolean | null
           name: string
           tags?: string[] | null
@@ -194,6 +196,7 @@ export type Database = {
           gender?: string | null
           id?: string
           intro_message?: string
+          is_mature?: boolean | null
           is_public?: boolean | null
           name?: string
           tags?: string[] | null
@@ -272,6 +275,7 @@ export type Database = {
           bio: string | null
           created_at: string
           id: string
+          show_mature_content: boolean | null
           updated_at: string
           username: string
         }
@@ -280,6 +284,7 @@ export type Database = {
           bio?: string | null
           created_at?: string
           id: string
+          show_mature_content?: boolean | null
           updated_at?: string
           username: string
         }
@@ -288,6 +293,7 @@ export type Database = {
           bio?: string | null
           created_at?: string
           id?: string
+          show_mature_content?: boolean | null
           updated_at?: string
           username?: string
         }
