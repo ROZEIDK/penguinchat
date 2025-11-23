@@ -8,10 +8,10 @@ interface Conversation {
   id: string;
   chatbot_id: string;
   last_message_at: string;
-  chatbot: {
+  chatbots: {
     name: string;
     avatar_url: string | null;
-  };
+  } | null;
 }
 
 export default function Chats() {
@@ -67,38 +67,42 @@ export default function Chats() {
           </div>
         ) : (
           <div className="space-y-4">
-            {conversations.map((conv) => (
-              <Card
-                key={conv.id}
-                onClick={() => navigate(`/chat/${conv.chatbot_id}`)}
-                className="p-6 bg-gradient-card border-border hover:border-primary/50 transition-all cursor-pointer"
-              >
-                <div className="flex items-center gap-4">
-                  {conv.chatbot.avatar_url ? (
-                    <img
-                      src={conv.chatbot.avatar_url}
-                      alt={conv.chatbot.name}
-                      className="w-16 h-16 rounded-lg object-cover"
-                    />
-                  ) : (
-                    <div className="w-16 h-16 rounded-lg bg-gradient-primary flex items-center justify-center">
-                      <span className="text-2xl font-bold text-primary-foreground">
-                        {conv.chatbot.name[0]}
-                      </span>
+            {conversations.map((conv) => {
+              if (!conv.chatbots) return null;
+              
+              return (
+                <Card
+                  key={conv.id}
+                  onClick={() => navigate(`/chat/${conv.chatbot_id}`)}
+                  className="p-6 bg-gradient-card border-border hover:border-primary/50 transition-all cursor-pointer"
+                >
+                  <div className="flex items-center gap-4">
+                    {conv.chatbots.avatar_url ? (
+                      <img
+                        src={conv.chatbots.avatar_url}
+                        alt={conv.chatbots.name}
+                        className="w-16 h-16 rounded-lg object-cover"
+                      />
+                    ) : (
+                      <div className="w-16 h-16 rounded-lg bg-gradient-primary flex items-center justify-center">
+                        <span className="text-2xl font-bold text-primary-foreground">
+                          {conv.chatbots.name[0]}
+                        </span>
+                      </div>
+                    )}
+                    <div className="flex-1">
+                      <h3 className="font-bold text-xl mb-1">{conv.chatbots.name}</h3>
+                      <p className="text-sm text-muted-foreground">
+                        Last active{" "}
+                        {formatDistanceToNow(new Date(conv.last_message_at), {
+                          addSuffix: true,
+                        })}
+                      </p>
                     </div>
-                  )}
-                  <div className="flex-1">
-                    <h3 className="font-bold text-xl mb-1">{conv.chatbot.name}</h3>
-                    <p className="text-sm text-muted-foreground">
-                      Last active{" "}
-                      {formatDistanceToNow(new Date(conv.last_message_at), {
-                        addSuffix: true,
-                      })}
-                    </p>
                   </div>
-                </div>
-              </Card>
-            ))}
+                </Card>
+              );
+            })}
           </div>
         )}
       </div>
