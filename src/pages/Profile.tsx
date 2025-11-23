@@ -41,9 +41,18 @@ export default function Profile() {
       .from("profiles")
       .select("*")
       .eq("id", userId)
-      .single();
+      .maybeSingle();
 
-    if (!error && data) {
+    if (error) {
+      toast({
+        title: "Error loading profile",
+        description: error.message,
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (data) {
       setProfile(data);
       setFormData({
         username: data.username || "",
