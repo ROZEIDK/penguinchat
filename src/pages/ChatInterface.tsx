@@ -4,7 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
-import { Send, Loader2, ArrowLeft, Edit, Trash2 } from "lucide-react";
+import { Send, Loader2, ArrowLeft, Edit, Trash2, ImagePlus } from "lucide-react";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -326,7 +326,15 @@ export default function ChatInterface() {
                     : "bg-card/80 backdrop-blur-lg border border-border"
                 }`}
               >
-                {msg.content}
+                {msg.content.startsWith("data:image/") ? (
+                  <img 
+                    src={msg.content} 
+                    alt="Generated" 
+                    className="max-w-full rounded-lg"
+                  />
+                ) : (
+                  msg.content
+                )}
               </div>
             </div>
           ))}
@@ -351,6 +359,14 @@ export default function ChatInterface() {
       {/* Input */}
       <div className="bg-card/80 backdrop-blur-lg border-t border-border p-4">
         <div className="max-w-4xl mx-auto flex gap-2">
+          <Button
+            variant="outline"
+            size="icon"
+            onClick={() => setInput("Give me a picture of ")}
+            title="Generate image"
+          >
+            <ImagePlus className="h-5 w-5" />
+          </Button>
           <Input
             value={input}
             onChange={(e) => setInput(e.target.value)}
