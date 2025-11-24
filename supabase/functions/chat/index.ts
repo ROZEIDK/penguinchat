@@ -72,11 +72,16 @@ serve(async (req) => {
       const imageData = await imageResponse.json();
       console.log('Image API response:', JSON.stringify(imageData, null, 2));
       
-      const generatedImageUrl = imageData.choices?.[0]?.message?.images?.[0]?.image_url?.url;
+      const choice = imageData.choices?.[0];
+      const generatedImageUrl = choice?.message?.images?.[0]?.image_url?.url;
 
       if (!generatedImageUrl) {
-        console.error('No image URL in response. Full response:', imageData);
-        throw new Error('No image generated in API response');
+        const fallbackText = choice?.message?.content ?? 'I was not able to generate an image for that request.';
+        console.warn('No image URL in response, returning text fallback.');
+        return new Response(
+          JSON.stringify({ response: fallbackText }),
+          { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
       }
 
       console.log('Image generated successfully');
