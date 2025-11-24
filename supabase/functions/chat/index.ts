@@ -41,7 +41,7 @@ serve(async (req) => {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          model: 'google/gemini-2.5-flash-image-preview',
+          model: 'google/gemini-2.5-flash-image',
           messages: [
             {
               role: 'user',
@@ -66,14 +66,17 @@ serve(async (req) => {
       if (!imageResponse.ok) {
         const errorText = await imageResponse.text();
         console.error('Image generation error:', imageResponse.status, errorText);
-        throw new Error('Failed to generate image');
+        throw new Error(`Failed to generate image: ${errorText}`);
       }
 
       const imageData = await imageResponse.json();
+      console.log('Image API response:', JSON.stringify(imageData, null, 2));
+      
       const generatedImageUrl = imageData.choices?.[0]?.message?.images?.[0]?.image_url?.url;
 
       if (!generatedImageUrl) {
-        throw new Error('No image generated');
+        console.error('No image URL in response. Full response:', imageData);
+        throw new Error('No image generated in API response');
       }
 
       console.log('Image generated successfully');
