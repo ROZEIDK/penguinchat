@@ -9,6 +9,13 @@ import { Switch } from "@/components/ui/switch";
 import { useToast } from "@/hooks/use-toast";
 import { Upload, Loader2, X, ArrowLeft } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 
 export default function EditChatbot() {
   const { chatbotId } = useParams();
@@ -29,6 +36,7 @@ export default function EditChatbot() {
     backstory: "",
     dialogue_style: "",
     avatar_url: "",
+    image_generation_model: "gemini",
   });
 
   const [tags, setTags] = useState<string[]>([]);
@@ -76,6 +84,7 @@ export default function EditChatbot() {
         backstory: data.backstory || "",
         dialogue_style: data.dialogue_style || "",
         avatar_url: data.avatar_url || "",
+        image_generation_model: data.image_generation_model || "gemini",
       });
       setTags(data.tags || []);
     } catch (error: any) {
@@ -228,6 +237,24 @@ export default function EditChatbot() {
           </div>
 
           <div className="bg-gradient-card rounded-xl p-6 border border-border shadow-card space-y-4">
+            <div>
+              <Label htmlFor="image_model">Image Generation Model</Label>
+              <Select
+                value={formData.image_generation_model}
+                onValueChange={(value) =>
+                  setFormData({ ...formData, image_generation_model: value })
+                }
+              >
+                <SelectTrigger className="mt-1">
+                  <SelectValue placeholder="Select model" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="gemini">Gemini (Default)</SelectItem>
+                  <SelectItem value="stable-diffusion">Stable Diffusion</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
             <div>
               <Label htmlFor="name">Name *</Label>
               <Input
