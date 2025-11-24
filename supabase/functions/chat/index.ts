@@ -19,7 +19,72 @@ serve(async (req) => {
       throw new Error('LOVABLE_API_KEY is not configured');
     }
 
-    // Build system prompt based on chatbot personality
+    // Check if the last message is an image generation request
+    const lastMessage = messages[messages.length - 1];
+    const isImageRequest = lastMessage?.content?.toLowerCase().startsWith('give me a picture of');
+
+    if (isImageRequest && chatbot.avatar_url) {
+      console.log('Image generation request detected');
+      
+      // Extract the prompt after "Give me a picture of"
+      const imagePrompt = lastMessage.content.substring('give me a picture of'.length).trim();
+      
+      // Build the image generation prompt with anime style
+      const fullPrompt = `Anime style artwork: ${imagePrompt}. High quality anime art, detailed, vibrant colors, professional anime illustration.`;
+      
+      console.log('Generating image with prompt:', fullPrompt);
+
+      const imageResponse = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${LOVABLE_API_KEY}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          model: 'google/gemini-2.5-flash-image-preview',
+          messages: [
+            {
+              role: 'user',
+              content: [
+                {
+                  type: 'text',
+                  text: fullPrompt
+                },
+                {
+                  type: 'image_url',
+                  image_url: {
+                    url: chatbot.avatar_url
+                  }
+                }
+              ]
+            }
+          ],
+          modalities: ['image', 'text']
+        }),
+      });
+
+      if (!imageResponse.ok) {
+        const errorText = await imageResponse.text();
+        console.error('Image generation error:', imageResponse.status, errorText);
+        throw new Error('Failed to generate image');
+      }
+
+      const imageData = await imageResponse.json();
+      const generatedImageUrl = imageData.choices?.[0]?.message?.images?.[0]?.image_url?.url;
+
+      if (!generatedImageUrl) {
+        throw new Error('No image generated');
+      }
+
+      console.log('Image generated successfully');
+
+      return new Response(
+        JSON.stringify({ response: generatedImageUrl }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    // Regular chat response
     let systemPrompt = `You are ${chatbot.name}. ${chatbot.description}`;
     
     if (chatbot.backstory) {
@@ -36,7 +101,6 @@ serve(async (req) => {
 
     systemPrompt += `\n\nStay in character and respond naturally based on your personality and background.`;
 
-    // Convert messages to API format
     const conversationHistory = messages.map((msg: any) => ({
       role: msg.role,
       content: msg.content,
