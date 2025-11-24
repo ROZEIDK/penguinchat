@@ -32,6 +32,8 @@ interface Chatbot {
   dialogue_style: string | null;
   description: string;
   creator_id: string;
+  is_mature: boolean | null;
+  image_generation_model: string | null;
 }
 
 export default function ChatInterface() {

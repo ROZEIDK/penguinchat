@@ -25,14 +25,98 @@ serve(async (req) => {
 
     if (isImageRequest && chatbot.avatar_url) {
       console.log('Image generation request detected');
+      console.log('Chatbot settings:', {
+        isMature: chatbot.is_mature,
+        imageModel: chatbot.image_generation_model
+      });
       
       // Extract the prompt after "Give me a picture of"
       const imagePrompt = lastMessage.content.substring('give me a picture of'.length).trim();
       
-      // Build the image generation prompt with anime style
+      const imageModel = chatbot.image_generation_model || 'gemini';
+      
+      // Use Stable Diffusion via Replicate
+      if (imageModel === 'stable-diffusion') {
+        const REPLICATE_API_KEY = Deno.env.get('REPLICATE_API_KEY');
+        if (!REPLICATE_API_KEY) {
+          return new Response(
+            JSON.stringify({ 
+              response: 'Stable Diffusion requires a Replicate API key. Please ask the chatbot creator to configure REPLICATE_API_KEY in their Supabase secrets.' 
+            }),
+            { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          );
+        }
+
+        console.log('Using Stable Diffusion for image generation');
+        
+        // Build the prompt
+        const fullPrompt = `Anime style artwork: ${imagePrompt}. High quality anime art, detailed, vibrant colors, professional anime illustration.`;
+        
+        const replicateResponse = await fetch('https://api.replicate.com/v1/predictions', {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${REPLICATE_API_KEY}`,
+            'Content-Type': 'application/json',
+            'Prefer': 'wait'
+          },
+          body: JSON.stringify({
+            version: '5599ed30703defd1d160a25a63321b4dec97101d98b4674bcc56e41f62f35637',
+            input: {
+              prompt: fullPrompt,
+              go_fast: true,
+              megapixels: '1',
+              num_outputs: 1,
+              aspect_ratio: '1:1',
+              output_format: 'webp',
+              output_quality: 80,
+              num_inference_steps: 4
+            }
+          })
+        });
+
+        if (!replicateResponse.ok) {
+          const errorText = await replicateResponse.text();
+          console.error('Replicate API error:', replicateResponse.status, errorText);
+          return new Response(
+            JSON.stringify({ response: 'Failed to generate image with Stable Diffusion. Please try again or contact the chatbot creator.' }),
+            { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          );
+        }
+
+        const result = await replicateResponse.json();
+        console.log('Replicate result:', result);
+
+        if (result.output && result.output[0]) {
+          console.log('Stable Diffusion image generated successfully');
+          return new Response(
+            JSON.stringify({ response: result.output[0] }),
+            { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          );
+        } else if (result.error) {
+          console.error('Replicate generation error:', result.error);
+          return new Response(
+            JSON.stringify({ response: `Image generation failed: ${result.error}` }),
+            { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          );
+        } else {
+          return new Response(
+            JSON.stringify({ response: 'Failed to generate image. Please try again.' }),
+            { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          );
+        }
+      }
+      
+      // Use Gemini for image generation
       const fullPrompt = `Anime style artwork: ${imagePrompt}. High quality anime art, detailed, vibrant colors, professional anime illustration.`;
       
-      console.log('Generating image with prompt:', fullPrompt);
+      console.log('Using Gemini for image generation with prompt:', fullPrompt);
+
+      // Use different model based on mature content setting
+      const geminiModel = chatbot.is_mature 
+        ? 'google/gemini-3-pro-image-preview'  // More lenient model for mature content
+        : 'google/gemini-2.5-flash-image';
+
+      console.log('Using model:', geminiModel);
 
       const imageResponse = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
         method: 'POST',
@@ -41,7 +125,7 @@ serve(async (req) => {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          model: 'google/gemini-2.5-flash-image',
+          model: geminiModel,
           messages: [
             {
               role: 'user',
