@@ -161,6 +161,7 @@ export type Database = {
           dialogue_style: string | null
           gender: string | null
           id: string
+          image_generation_model: string | null
           intro_message: string
           is_mature: boolean | null
           is_public: boolean | null
@@ -178,6 +179,7 @@ export type Database = {
           dialogue_style?: string | null
           gender?: string | null
           id?: string
+          image_generation_model?: string | null
           intro_message: string
           is_mature?: boolean | null
           is_public?: boolean | null
@@ -195,6 +197,7 @@ export type Database = {
           dialogue_style?: string | null
           gender?: string | null
           id?: string
+          image_generation_model?: string | null
           intro_message?: string
           is_mature?: boolean | null
           is_public?: boolean | null
