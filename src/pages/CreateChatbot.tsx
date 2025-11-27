@@ -182,7 +182,7 @@ export default function CreateChatbot() {
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="gemini">Gemini (Default)</SelectItem>
-                  <SelectItem value="stable-diffusion">Stable Diffusion</SelectItem>
+                  <SelectItem value="dall-e">DALL-E</SelectItem>
                 </SelectContent>
               </Select>
             </div>
