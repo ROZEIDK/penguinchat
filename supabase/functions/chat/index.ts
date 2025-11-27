@@ -35,67 +35,60 @@ serve(async (req) => {
       
       const imageModel = chatbot.image_generation_model || 'gemini';
       
-      // Use Stable Diffusion via Replicate
-      if (imageModel === 'stable-diffusion') {
-        const REPLICATE_API_KEY = Deno.env.get('REPLICATE_API_KEY');
-        if (!REPLICATE_API_KEY) {
+      // Use DALL-E via OpenAI
+      if (imageModel === 'dall-e') {
+        const OPENAI_API_KEY = Deno.env.get('OPENAI_API_KEY');
+        if (!OPENAI_API_KEY) {
           return new Response(
             JSON.stringify({ 
-              response: 'Stable Diffusion requires a Replicate API key. Please ask the chatbot creator to configure REPLICATE_API_KEY in their Supabase secrets.' 
+              response: 'DALL-E requires an OpenAI API key. Please ask the chatbot creator to configure OPENAI_API_KEY in their Supabase secrets.' 
             }),
             { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
           );
         }
 
-        console.log('Using Stable Diffusion for image generation');
+        console.log('Using DALL-E for image generation');
         
         // Build the prompt
         const fullPrompt = `Anime style artwork: ${imagePrompt}. High quality anime art, detailed, vibrant colors, professional anime illustration.`;
         
-        const replicateResponse = await fetch('https://api.replicate.com/v1/predictions', {
+        const dalleResponse = await fetch('https://api.openai.com/v1/images/generations', {
           method: 'POST',
           headers: {
-            'Authorization': `Bearer ${REPLICATE_API_KEY}`,
-            'Content-Type': 'application/json',
-            'Prefer': 'wait'
+            'Authorization': `Bearer ${OPENAI_API_KEY}`,
+            'Content-Type': 'application/json'
           },
           body: JSON.stringify({
-            version: '5599ed30703defd1d160a25a63321b4dec97101d98b4674bcc56e41f62f35637',
-            input: {
-              prompt: fullPrompt,
-              go_fast: true,
-              megapixels: '1',
-              num_outputs: 1,
-              aspect_ratio: '1:1',
-              output_format: 'webp',
-              output_quality: 80,
-              num_inference_steps: 4
-            }
+            model: 'gpt-image-1',
+            prompt: fullPrompt,
+            n: 1,
+            size: '1024x1024',
+            quality: 'high'
           })
         });
 
-        if (!replicateResponse.ok) {
-          const errorText = await replicateResponse.text();
-          console.error('Replicate API error:', replicateResponse.status, errorText);
+        if (!dalleResponse.ok) {
+          const errorText = await dalleResponse.text();
+          console.error('DALL-E API error:', dalleResponse.status, errorText);
           return new Response(
-            JSON.stringify({ response: 'Failed to generate image with Stable Diffusion. Please try again or contact the chatbot creator.' }),
+            JSON.stringify({ response: 'Failed to generate image with DALL-E. Please try again or contact the chatbot creator.' }),
             { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
           );
         }
 
-        const result = await replicateResponse.json();
-        console.log('Replicate result:', result);
+        const result = await dalleResponse.json();
+        console.log('DALL-E result:', result);
 
-        if (result.output && result.output[0]) {
-          console.log('Stable Diffusion image generated successfully');
+        if (result.data && result.data[0] && result.data[0].url) {
+          console.log('DALL-E image generated successfully');
           return new Response(
-            JSON.stringify({ response: result.output[0] }),
+            JSON.stringify({ response: result.data[0].url }),
             { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
           );
         } else if (result.error) {
-          console.error('Replicate generation error:', result.error);
+          console.error('DALL-E generation error:', result.error);
           return new Response(
-            JSON.stringify({ response: `Image generation failed: ${result.error}` }),
+            JSON.stringify({ response: `Image generation failed: ${result.error.message || result.error}` }),
             { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
           );
         } else {
