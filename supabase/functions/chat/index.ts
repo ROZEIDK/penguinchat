@@ -38,7 +38,10 @@ serve(async (req) => {
       // Use DALL-E via OpenAI
       if (imageModel === 'dall-e') {
         const OPENAI_API_KEY = Deno.env.get('OPENAI_API_KEY');
+        console.log('DALL-E selected, API key present:', !!OPENAI_API_KEY);
+        
         if (!OPENAI_API_KEY) {
+          console.error('OPENAI_API_KEY not found in environment');
           return new Response(
             JSON.stringify({ 
               response: 'DALL-E requires an OpenAI API key. Please ask the chatbot creator to configure OPENAI_API_KEY in their Supabase secrets.' 
@@ -51,49 +54,76 @@ serve(async (req) => {
         
         // Build the prompt
         const fullPrompt = `Anime style artwork: ${imagePrompt}. High quality anime art, detailed, vibrant colors, professional anime illustration.`;
+        console.log('DALL-E prompt:', fullPrompt);
         
-        const dalleResponse = await fetch('https://api.openai.com/v1/images/generations', {
-          method: 'POST',
-          headers: {
-            'Authorization': `Bearer ${OPENAI_API_KEY}`,
-            'Content-Type': 'application/json'
-          },
-          body: JSON.stringify({
-            model: 'gpt-image-1',
-            prompt: fullPrompt,
-            n: 1,
-            size: '1024x1024',
-            quality: 'high'
-          })
-        });
+        try {
+          const dalleResponse = await fetch('https://api.openai.com/v1/images/generations', {
+            method: 'POST',
+            headers: {
+              'Authorization': `Bearer ${OPENAI_API_KEY}`,
+              'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+              model: 'gpt-image-1',
+              prompt: fullPrompt,
+              n: 1,
+              size: '1024x1024',
+              quality: 'high'
+            })
+          });
 
-        if (!dalleResponse.ok) {
-          const errorText = await dalleResponse.text();
-          console.error('DALL-E API error:', dalleResponse.status, errorText);
-          return new Response(
-            JSON.stringify({ response: 'Failed to generate image with DALL-E. Please try again or contact the chatbot creator.' }),
-            { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-          );
-        }
+          console.log('DALL-E response status:', dalleResponse.status);
 
-        const result = await dalleResponse.json();
-        console.log('DALL-E result:', result);
+          if (!dalleResponse.ok) {
+            const errorText = await dalleResponse.text();
+            console.error('DALL-E API error details:', {
+              status: dalleResponse.status,
+              statusText: dalleResponse.statusText,
+              error: errorText
+            });
+            
+            // Return more specific error messages
+            let errorMessage = 'Failed to generate image with DALL-E.';
+            if (dalleResponse.status === 401) {
+              errorMessage = 'Invalid OpenAI API key. Please check your OPENAI_API_KEY secret.';
+            } else if (dalleResponse.status === 429) {
+              errorMessage = 'OpenAI rate limit exceeded. Please try again later.';
+            } else if (dalleResponse.status === 400) {
+              errorMessage = 'Invalid image generation request. Please try a different prompt.';
+            }
+            
+            return new Response(
+              JSON.stringify({ response: `${errorMessage} Error: ${errorText}` }),
+              { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+            );
+          }
 
-        if (result.data && result.data[0] && result.data[0].url) {
-          console.log('DALL-E image generated successfully');
+          const result = await dalleResponse.json();
+          console.log('DALL-E result structure:', JSON.stringify(result, null, 2));
+
+          if (result.data && result.data[0] && result.data[0].url) {
+            console.log('DALL-E image generated successfully');
+            return new Response(
+              JSON.stringify({ response: result.data[0].url }),
+              { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+            );
+          } else if (result.error) {
+            console.error('DALL-E generation error:', result.error);
+            return new Response(
+              JSON.stringify({ response: `Image generation failed: ${result.error.message || JSON.stringify(result.error)}` }),
+              { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+            );
+          } else {
+            console.error('Unexpected DALL-E response format:', result);
+            return new Response(
+              JSON.stringify({ response: 'Failed to generate image. Unexpected response format from DALL-E.' }),
+              { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+            );
+          }
+        } catch (dalleError) {
+          console.error('DALL-E fetch error:', dalleError);
           return new Response(
-            JSON.stringify({ response: result.data[0].url }),
-            { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-          );
-        } else if (result.error) {
-          console.error('DALL-E generation error:', result.error);
-          return new Response(
-            JSON.stringify({ response: `Image generation failed: ${result.error.message || result.error}` }),
-            { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-          );
-        } else {
-          return new Response(
-            JSON.stringify({ response: 'Failed to generate image. Please try again.' }),
+            JSON.stringify({ response: `Failed to connect to DALL-E API: ${dalleError instanceof Error ? dalleError.message : 'Unknown error'}` }),
             { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
           );
         }
