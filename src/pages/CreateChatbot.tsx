@@ -279,7 +279,7 @@ export default function CreateChatbot() {
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="gemini">DreamForge (Default)</SelectItem>
-                  <SelectItem value="dall-e">DALL-E</SelectItem>
+                  <SelectItem value="stable-diffusion">Stable Diffusion</SelectItem>
                   <SelectItem value="gpt-image">GPT Image</SelectItem>
                 </SelectContent>
               </Select>
