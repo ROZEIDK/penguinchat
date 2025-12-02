@@ -7,7 +7,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
 import { useToast } from "@/hooks/use-toast";
-import { Upload, Loader2, X } from "lucide-react";
+import { Upload, Loader2, X, Eye, EyeOff, MessageCircle } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import {
   Select,
@@ -16,11 +16,15 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { Tables } from "@/integrations/supabase/types";
 
 export default function CreateChatbot() {
   const [user, setUser] = useState<any>(null);
   const [loading, setLoading] = useState(false);
   const [uploading, setUploading] = useState(false);
+  const [showPrivate, setShowPrivate] = useState(false);
+  const [privateCharacters, setPrivateCharacters] = useState<Tables<"chatbots">[]>([]);
+  const [loadingPrivate, setLoadingPrivate] = useState(false);
   const navigate = useNavigate();
   const { toast } = useToast();
 
@@ -49,6 +53,36 @@ export default function CreateChatbot() {
       }
     });
   }, [navigate]);
+
+  const fetchPrivateCharacters = async () => {
+    if (!user) return;
+    setLoadingPrivate(true);
+    try {
+      const { data, error } = await supabase
+        .from("chatbots")
+        .select("*")
+        .eq("creator_id", user.id)
+        .eq("is_public", false)
+        .order("created_at", { ascending: false });
+
+      if (error) throw error;
+      setPrivateCharacters(data || []);
+    } catch (error: any) {
+      toast({
+        title: "Error loading private characters",
+        description: error.message,
+        variant: "destructive",
+      });
+    } finally {
+      setLoadingPrivate(false);
+    }
+  };
+
+  useEffect(() => {
+    if (showPrivate && user) {
+      fetchPrivateCharacters();
+    }
+  }, [showPrivate, user]);
 
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -123,9 +157,72 @@ export default function CreateChatbot() {
   return (
     <div className="min-h-screen p-6">
       <div className="max-w-3xl mx-auto">
-        <h1 className="text-4xl font-bold mb-8 bg-gradient-primary bg-clip-text text-transparent">
-          Create Character
-        </h1>
+        <div className="flex items-center justify-between mb-8">
+          <h1 className="text-4xl font-bold bg-gradient-primary bg-clip-text text-transparent">
+            Create Character
+          </h1>
+          <Button
+            type="button"
+            variant="outline"
+            onClick={() => setShowPrivate(!showPrivate)}
+            className="flex items-center gap-2"
+          >
+            {showPrivate ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+            {showPrivate ? "Hide" : "Show"} Private Characters
+          </Button>
+        </div>
+
+        {showPrivate && (
+          <div className="bg-gradient-card rounded-xl p-6 border border-border shadow-card mb-6">
+            <h2 className="text-xl font-semibold mb-4">Your Private Characters</h2>
+            {loadingPrivate ? (
+              <div className="flex justify-center py-8">
+                <Loader2 className="h-6 w-6 animate-spin text-primary" />
+              </div>
+            ) : privateCharacters.length === 0 ? (
+              <p className="text-muted-foreground text-center py-4">
+                You don't have any private characters yet.
+              </p>
+            ) : (
+              <div className="grid gap-3">
+                {privateCharacters.map((character) => (
+                  <div
+                    key={character.id}
+                    className="flex items-center gap-4 p-3 rounded-lg bg-background/50 hover:bg-background/80 transition-colors"
+                  >
+                    {character.avatar_url ? (
+                      <img
+                        src={character.avatar_url}
+                        alt={character.name}
+                        className="w-12 h-12 rounded-full object-cover"
+                      />
+                    ) : (
+                      <div className="w-12 h-12 rounded-full bg-primary/20 flex items-center justify-center">
+                        <span className="text-lg font-bold text-primary">
+                          {character.name.charAt(0)}
+                        </span>
+                      </div>
+                    )}
+                    <div className="flex-1 min-w-0">
+                      <h3 className="font-medium truncate">{character.name}</h3>
+                      <p className="text-sm text-muted-foreground truncate">
+                        {character.description}
+                      </p>
+                    </div>
+                    <Button
+                      size="sm"
+                      onClick={() => navigate(`/chat/${character.id}`)}
+                      className="flex items-center gap-1"
+                    >
+                      <MessageCircle className="h-4 w-4" />
+                      Chat
+                    </Button>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
 
         <form onSubmit={handleSubmit} className="space-y-6">
           <div className="bg-gradient-card rounded-xl p-6 border border-border shadow-card">
