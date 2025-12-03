@@ -65,7 +65,7 @@ export default function Auth() {
       <div className="w-full max-w-md">
         <div className="bg-gradient-card rounded-2xl shadow-card p-8 border border-border">
           <h1 className="text-4xl font-bold text-center mb-2 bg-gradient-primary bg-clip-text text-transparent">
-            AI Chatbots
+            Penguin Chat
           </h1>
           <p className="text-center text-muted-foreground mb-8">
             {isLogin ? "Welcome back!" : "Create your account"}
