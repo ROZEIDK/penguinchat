@@ -30,7 +30,7 @@ export function AppSidebar() {
       <SidebarContent>
         <div className="p-6">
           <h1 className={`font-bold bg-gradient-primary bg-clip-text text-transparent transition-all ${collapsed ? "text-xl" : "text-2xl"}`}>
-            {collapsed ? "AI" : "AI Chatbots"}
+            {collapsed ? "🐧" : "Penguin Chat"}
           </h1>
         </div>
         
