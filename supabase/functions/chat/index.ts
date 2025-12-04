@@ -129,7 +129,55 @@ serve(async (req) => {
         }
       }
       
-      // Use Gemini for image generation
+      // Use Stable Diffusion via Hugging Face
+      if (imageModel === 'stable-diffusion') {
+        const HF_TOKEN = Deno.env.get('HUGGING_FACE_ACCESS_TOKEN');
+        console.log('Stable Diffusion selected, API key present:', !!HF_TOKEN);
+        
+        if (!HF_TOKEN) {
+          console.error('HUGGING_FACE_ACCESS_TOKEN not found in environment');
+          return new Response(
+            JSON.stringify({ 
+              response: 'Stable Diffusion requires a Hugging Face access token. Please configure HUGGING_FACE_ACCESS_TOKEN in Supabase secrets.' 
+            }),
+            { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          );
+        }
+
+        console.log('Using Stable Diffusion (FLUX.1-schnell) for image generation');
+        
+        const fullPrompt = `Anime style artwork: ${imagePrompt}. High quality anime art, detailed, vibrant colors, professional anime illustration.`;
+        console.log('Stable Diffusion prompt:', fullPrompt);
+        
+        try {
+          const { HfInference } = await import('https://esm.sh/@huggingface/inference@2.3.2');
+          const hf = new HfInference(HF_TOKEN);
+
+          const image = await hf.textToImage({
+            inputs: fullPrompt,
+            model: 'black-forest-labs/FLUX.1-schnell',
+          });
+
+          // Convert blob to base64
+          const arrayBuffer = await image.arrayBuffer();
+          const base64 = btoa(String.fromCharCode(...new Uint8Array(arrayBuffer)));
+          const imageUrl = `data:image/png;base64,${base64}`;
+
+          console.log('Stable Diffusion image generated successfully');
+          return new Response(
+            JSON.stringify({ response: imageUrl }),
+            { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          );
+        } catch (hfError) {
+          console.error('Hugging Face error:', hfError);
+          return new Response(
+            JSON.stringify({ response: `Failed to generate image with Stable Diffusion: ${hfError instanceof Error ? hfError.message : 'Unknown error'}` }),
+            { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          );
+        }
+      }
+      
+      // Use Gemini for image generation (default)
       const fullPrompt = `Anime style artwork: ${imagePrompt}. High quality anime art, detailed, vibrant colors, professional anime illustration.`;
       
       console.log('Using Gemini for image generation with prompt:', fullPrompt);
