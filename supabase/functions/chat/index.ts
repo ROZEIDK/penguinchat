@@ -129,7 +129,7 @@ serve(async (req) => {
         }
       }
       
-      // Use Stable Diffusion via Hugging Face with image-to-image
+      // Use Stable Diffusion via Hugging Face (text-to-image only - no reference image support)
       if (imageModel === 'stable-diffusion') {
         const HF_TOKEN = Deno.env.get('HUGGING_FACE_ACCESS_TOKEN');
         console.log('Stable Diffusion selected, API key present:', !!HF_TOKEN);
@@ -144,31 +144,18 @@ serve(async (req) => {
           );
         }
 
-        console.log('Using Stable Diffusion (img2img) for image generation');
+        console.log('Using Stable Diffusion (FLUX.1-schnell) for image generation');
         
-        const fullPrompt = `Anime style artwork: ${imagePrompt}. High quality anime art, detailed, vibrant colors, professional anime illustration, same character.`;
+        const fullPrompt = `Anime style artwork: ${imagePrompt}. High quality anime art, detailed, vibrant colors, professional anime illustration.`;
         console.log('Stable Diffusion prompt:', fullPrompt);
-        console.log('Reference image URL:', chatbot.avatar_url);
         
         try {
           const { HfInference } = await import('https://esm.sh/@huggingface/inference@3.7.0');
           const hf = new HfInference(HF_TOKEN);
 
-          // Fetch the avatar image to use as reference
-          const avatarResponse = await fetch(chatbot.avatar_url);
-          if (!avatarResponse.ok) {
-            throw new Error('Failed to fetch avatar image for reference');
-          }
-          const avatarBlob = await avatarResponse.blob();
-
-          // Use image-to-image with instruct-pix2pix model
-          const image = await hf.imageToImage({
-            inputs: avatarBlob,
-            parameters: {
-              prompt: fullPrompt,
-              strength: 0.7, // How much to transform (0.0 = no change, 1.0 = complete change)
-            },
-            model: 'timbrooks/instruct-pix2pix',
+          const image = await hf.textToImage({
+            inputs: fullPrompt,
+            model: 'black-forest-labs/FLUX.1-schnell',
           });
 
           // Convert blob to base64
@@ -176,7 +163,7 @@ serve(async (req) => {
           const base64 = btoa(String.fromCharCode(...new Uint8Array(arrayBuffer)));
           const imageUrl = `data:image/png;base64,${base64}`;
 
-          console.log('Stable Diffusion img2img generated successfully');
+          console.log('Stable Diffusion image generated successfully');
           return new Response(
             JSON.stringify({ response: imageUrl }),
             { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
