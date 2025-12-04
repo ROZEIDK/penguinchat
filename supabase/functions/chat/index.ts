@@ -150,7 +150,7 @@ serve(async (req) => {
         console.log('Stable Diffusion prompt:', fullPrompt);
         
         try {
-          const { HfInference } = await import('https://esm.sh/@huggingface/inference@2.3.2');
+          const { HfInference } = await import('https://esm.sh/@huggingface/inference@3.7.0');
           const hf = new HfInference(HF_TOKEN);
 
           const image = await hf.textToImage({
