@@ -1,4 +1,4 @@
-import { Home, PlusCircle, Bell, MessageSquare, User } from "lucide-react";
+import { Home, PlusCircle, Bell, MessageSquare, User, Globe } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import { useLocation } from "react-router-dom";
 import {
@@ -17,6 +17,7 @@ const navItems = [
   { title: "Create Character", url: "/create", icon: PlusCircle },
   { title: "Notifications", url: "/notifications", icon: Bell },
   { title: "Chats", url: "/chats", icon: MessageSquare },
+  { title: "Browser", url: "/browser", icon: Globe },
   { title: "Profile", url: "/profile", icon: User },
 ];
 

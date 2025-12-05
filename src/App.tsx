@@ -12,6 +12,7 @@ import Notifications from "./pages/Notifications";
 import Chats from "./pages/Chats";
 import Profile from "./pages/Profile";
 import ChatInterface from "./pages/ChatInterface";
+import Browser from "./pages/Browser";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -32,6 +33,7 @@ const App = () => (
             <Route path="/chats" element={<Chats />} />
             <Route path="/profile" element={<Profile />} />
             <Route path="/chat/:chatbotId" element={<ChatInterface />} />
+            <Route path="/browser" element={<Browser />} />
             <Route path="*" element={<NotFound />} />
           </Routes>
         </Layout>
