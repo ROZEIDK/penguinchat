@@ -55,8 +55,6 @@ All colors MUST be HSL.
     --shadow-card: 0 8px 32px hsl(0 0% 0% / 0.4);
     --transition-smooth: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   }
-    }
-  }
 }
 
 @layer base {
@@ -84,10 +82,3 @@ All colors MUST be HSL.
 }
 
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@400;500;600;700;800&display=swap');
-
-@layer base {
-  /* ...the rest of your base...*/
-  #lovable-badge {
-    display: none !important;
-  }
-}
