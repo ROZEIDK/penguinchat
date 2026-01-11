@@ -14,6 +14,9 @@ import Profile from "./pages/Profile";
 import ChatInterface from "./pages/ChatInterface";
 import Browser from "./pages/Browser";
 import NotFound from "./pages/NotFound";
+import Coins from "./pages/Coins";
+import GenerateImage from "./pages/GenerateImage";
+import Subscribe from "./pages/Subscribe";
 
 const queryClient = new QueryClient();
 
@@ -34,6 +37,9 @@ const App = () => (
             <Route path="/profile" element={<Profile />} />
             <Route path="/chat/:chatbotId" element={<ChatInterface />} />
             <Route path="/browser" element={<Browser />} />
+            <Route path="/coins" element={<Coins />} />
+            <Route path="/generate-image" element={<GenerateImage />} />
+            <Route path="/subscribe" element={<Subscribe />} />
             <Route path="*" element={<NotFound />} />
           </Routes>
         </Layout>

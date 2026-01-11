@@ -3,7 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { Search, LogIn } from "lucide-react";
+import { Search, LogIn, Star, User as UserIcon } from "lucide-react";
 import { ChatbotCard } from "@/components/ChatbotCard";
 import { useToast } from "@/hooks/use-toast";
 import {
@@ -26,13 +26,38 @@ interface Chatbot {
   total_views: number;
   creator_id: string;
   is_mature: boolean;
+  gender: string | null;
   average_rating?: number;
   review_count?: number;
 }
 
+const genderFilters = [
+  { label: "All", value: "all", icon: Star },
+  { label: "Male", value: "male", icon: UserIcon },
+  { label: "Female", value: "female", icon: UserIcon },
+  { label: "Non-binary", value: "non-binary", icon: UserIcon },
+];
+
+const categoryTags = [
+  "Recommend",
+  "Anime",
+  "Dominant",
+  "OC",
+  "Mafia",
+  "Yandere",
+  "Furry",
+  "Femboy",
+  "Horror",
+  "Romance",
+  "Fantasy",
+  "Sci-Fi",
+];
+
 export default function Discover() {
   const [chatbots, setChatbots] = useState<Chatbot[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
+  const [genderFilter, setGenderFilter] = useState("all");
+  const [categoryFilter, setCategoryFilter] = useState("Recommend");
   const [user, setUser] = useState<any>(null);
   const [userProfile, setUserProfile] = useState<any>(null);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
@@ -70,14 +95,13 @@ export default function Discover() {
       .select("show_mature_content")
       .eq("id", userId)
       .single();
-    
+
     if (data) {
       setUserProfile(data);
     }
   };
 
   const fetchChatbots = async () => {
-    // Fetch chatbots
     const { data: chatbotsData, error } = await supabase
       .from("chatbots")
       .select("*")
@@ -86,12 +110,10 @@ export default function Discover() {
 
     if (error || !chatbotsData) return;
 
-    // Fetch reviews to calculate average ratings
     const { data: reviewsData } = await supabase
       .from("reviews")
       .select("chatbot_id, rating");
 
-    // Calculate average ratings per chatbot
     const ratingsByBot: Record<string, { sum: number; count: number }> = {};
     reviewsData?.forEach((r) => {
       if (!ratingsByBot[r.chatbot_id]) {
@@ -113,14 +135,27 @@ export default function Discover() {
   };
 
   const filteredChatbots = chatbots.filter((bot) => {
-    const matchesSearch = bot.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    const matchesSearch =
+      bot.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
       bot.description.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      bot.tags.some((tag) => tag.toLowerCase().includes(searchQuery.toLowerCase()));
-    
+      bot.tags.some((tag) =>
+        tag.toLowerCase().includes(searchQuery.toLowerCase())
+      );
+
     const showMature = userProfile?.show_mature_content ?? false;
     const matchesMatureFilter = !bot.is_mature || showMature;
-    
-    return matchesSearch && matchesMatureFilter;
+
+    const matchesGender =
+      genderFilter === "all" ||
+      bot.gender?.toLowerCase() === genderFilter.toLowerCase();
+
+    const matchesCategory =
+      categoryFilter === "Recommend" ||
+      bot.tags.some(
+        (tag) => tag.toLowerCase() === categoryFilter.toLowerCase()
+      );
+
+    return matchesSearch && matchesMatureFilter && matchesGender && matchesCategory;
   });
 
   const handleDeleteRequest = (chatbotId: string) => {
@@ -140,7 +175,7 @@ export default function Discover() {
       if (error) throw error;
 
       toast({ title: "Chatbot deleted successfully!" });
-      fetchChatbots(); // Refresh the list
+      fetchChatbots();
     } catch (error: any) {
       toast({
         title: "Error",
@@ -154,49 +189,119 @@ export default function Discover() {
   };
 
   return (
-    <div className="min-h-screen p-6">
-      <div className="max-w-7xl mx-auto">
-        <div className="flex items-center gap-4 mb-8">
+    <div className="min-h-screen">
+      {/* Header with search */}
+      <div className="sticky top-0 z-10 bg-background/95 backdrop-blur border-b border-border px-4 py-3">
+        <div className="flex items-center gap-3">
           <div className="flex-1 relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <Input
-              placeholder="Search chatbots..."
+              placeholder="Search Characters"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="pl-10 h-12 bg-card border-border"
+              className="pl-9 h-10 bg-secondary border-0 rounded-full text-sm"
             />
           </div>
           {!user && (
             <Button
               onClick={() => navigate("/auth")}
-              className="bg-gradient-primary hover:opacity-90 transition-opacity h-12 px-6"
+              size="sm"
+              className="bg-primary hover:bg-primary/90 rounded-full"
             >
-              <LogIn className="h-5 w-5 mr-2" />
+              <LogIn className="h-4 w-4 mr-1" />
               Login
             </Button>
           )}
         </div>
+      </div>
 
+      <div className="p-4">
+        {/* Banner Promo Area */}
+        <div className="mb-6 rounded-xl overflow-hidden bg-gradient-to-r from-purple-600/40 to-blue-600/40 p-6 relative">
+          <div className="relative z-10">
+            <p className="text-yellow-400 text-sm font-medium mb-1">
+              Nano Banana Pro 🍌
+            </p>
+            <h2 className="text-2xl font-bold mb-1">Remix Iconic Comics Your Way</h2>
+            <p className="text-sm text-muted-foreground mb-4">
+              New upgrade, more free tries
+            </p>
+            <Button className="bg-cyan-400/80 hover:bg-cyan-400 text-black font-semibold rounded-full px-6">
+              GO
+            </Button>
+          </div>
+        </div>
+
+        {/* For You Section */}
+        <div className="mb-4">
+          <div className="flex items-center gap-4 mb-4">
+            <h2 className="text-lg font-semibold">For you</h2>
+            {/* Gender Filters */}
+            <div className="flex items-center gap-2">
+              {genderFilters.map((filter) => (
+                <button
+                  key={filter.value}
+                  onClick={() => setGenderFilter(filter.value)}
+                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm transition-all ${
+                    genderFilter === filter.value
+                      ? "bg-primary/20 text-primary"
+                      : "text-muted-foreground hover:text-foreground"
+                  }`}
+                >
+                  {filter.value === "all" ? (
+                    <Star className="h-3.5 w-3.5" />
+                  ) : filter.value === "male" ? (
+                    <span className="text-blue-400">♂</span>
+                  ) : filter.value === "female" ? (
+                    <span className="text-pink-400">♀</span>
+                  ) : (
+                    <span>⚧</span>
+                  )}
+                  <span>{filter.label}</span>
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Category Tags */}
+          <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-hide">
+            {categoryTags.map((tag) => (
+              <button
+                key={tag}
+                onClick={() => setCategoryFilter(tag)}
+                className={`px-4 py-1.5 rounded-full text-sm whitespace-nowrap transition-all ${
+                  categoryFilter === tag
+                    ? "bg-primary text-primary-foreground"
+                    : "bg-secondary text-muted-foreground hover:text-foreground"
+                }`}
+              >
+                {tag}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* Chatbot Grid */}
         {filteredChatbots.length === 0 ? (
           <div className="text-center py-16">
             <p className="text-xl text-muted-foreground">
-              No chatbots have been made. Make your own!
+              No chatbots found. Create your own!
             </p>
             {user && (
               <Button
                 onClick={() => navigate("/create")}
-                className="mt-4 bg-gradient-primary hover:opacity-90 transition-opacity"
+                className="mt-4 bg-primary hover:bg-primary/90"
               >
                 Create Character
               </Button>
             )}
           </div>
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
             {filteredChatbots.map((bot) => (
-              <ChatbotCard 
-                key={bot.id} 
-                chatbot={bot} 
+              <ChatbotCard
+                key={bot.id}
+                chatbot={bot}
                 currentUserId={user?.id}
                 onDelete={handleDeleteRequest}
               />
@@ -211,8 +316,8 @@ export default function Discover() {
           <AlertDialogHeader>
             <AlertDialogTitle>Delete Chatbot</AlertDialogTitle>
             <AlertDialogDescription>
-              Are you sure you want to delete this chatbot? This action cannot be undone.
-              All conversations with this chatbot will be deleted.
+              Are you sure you want to delete this chatbot? This action cannot
+              be undone. All conversations with this chatbot will be deleted.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
