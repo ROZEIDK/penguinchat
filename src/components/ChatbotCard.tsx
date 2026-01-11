@@ -3,6 +3,7 @@ import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Eye, Edit, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { StarRating } from "@/components/StarRating";
 
 interface ChatbotCardProps {
   chatbot: {
@@ -13,6 +14,8 @@ interface ChatbotCardProps {
     tags: string[];
     total_views: number;
     creator_id: string;
+    average_rating?: number;
+    review_count?: number;
   };
   currentUserId?: string;
   onDelete?: (id: string) => void;
@@ -88,9 +91,17 @@ export function ChatbotCard({ chatbot, currentUserId, onDelete }: ChatbotCardPro
             </Badge>
           ))}
         </div>
-        <div className="flex items-center text-sm text-muted-foreground">
-          <Eye className="h-4 w-4 mr-1" />
-          {chatbot.total_views} views
+        <div className="flex items-center justify-between text-sm text-muted-foreground">
+          <div className="flex items-center">
+            <Eye className="h-4 w-4 mr-1" />
+            {chatbot.total_views} views
+          </div>
+          {chatbot.average_rating !== undefined && chatbot.average_rating > 0 && (
+            <div className="flex items-center gap-1">
+              <StarRating rating={Math.round(chatbot.average_rating)} size="sm" />
+              <span className="text-xs">({chatbot.review_count})</span>
+            </div>
+          )}
         </div>
       </div>
     </Card>

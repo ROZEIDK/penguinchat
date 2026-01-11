@@ -4,7 +4,9 @@ import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
-import { Send, Loader2, ArrowLeft, Edit, Trash2, ImagePlus } from "lucide-react";
+import { Send, Loader2, ArrowLeft, Edit, Trash2, ImagePlus, Star } from "lucide-react";
+import { ReviewDialog } from "@/components/ReviewDialog";
+import { ReviewsList } from "@/components/ReviewsList";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -47,6 +49,9 @@ export default function ChatInterface() {
   const [sending, setSending] = useState(false);
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const [showReviewDialog, setShowReviewDialog] = useState(false);
+  const [showReviews, setShowReviews] = useState(false);
+  const [reviewRefreshKey, setReviewRefreshKey] = useState(0);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const navigate = useNavigate();
   const { toast } = useToast();
@@ -283,25 +288,51 @@ export default function ChatInterface() {
               {chatbot.description}
             </p>
           </div>
-          {isOwner && (
-            <div className="flex gap-2">
+          <div className="flex gap-2">
+            <Button
+              variant="outline"
+              size="icon"
+              onClick={() => setShowReviews(!showReviews)}
+              title="View reviews"
+            >
+              <Star className="h-4 w-4" />
+            </Button>
+            {!isOwner && (
               <Button
                 variant="outline"
-                size="icon"
-                onClick={() => navigate(`/edit/${chatbotId}`)}
+                size="sm"
+                onClick={() => setShowReviewDialog(true)}
               >
-                <Edit className="h-4 w-4" />
+                Rate
               </Button>
-              <Button
-                variant="outline"
-                size="icon"
-                onClick={() => setShowDeleteDialog(true)}
-              >
-                <Trash2 className="h-4 w-4" />
-              </Button>
-            </div>
-          )}
+            )}
+            {isOwner && (
+              <>
+                <Button
+                  variant="outline"
+                  size="icon"
+                  onClick={() => navigate(`/edit/${chatbotId}`)}
+                >
+                  <Edit className="h-4 w-4" />
+                </Button>
+                <Button
+                  variant="outline"
+                  size="icon"
+                  onClick={() => setShowDeleteDialog(true)}
+                >
+                  <Trash2 className="h-4 w-4" />
+                </Button>
+              </>
+            )}
+          </div>
         </div>
+
+        {/* Reviews Panel */}
+        {showReviews && (
+          <div className="border-t border-border p-4 bg-card/60">
+            <ReviewsList chatbotId={chatbotId!} refreshKey={reviewRefreshKey} />
+          </div>
+        )}
       </div>
 
       {/* Messages */}
@@ -416,6 +447,18 @@ export default function ChatInterface() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Review Dialog */}
+      {user && chatbot && (
+        <ReviewDialog
+          open={showReviewDialog}
+          onOpenChange={setShowReviewDialog}
+          chatbotId={chatbot.id}
+          chatbotName={chatbot.name}
+          userId={user.id}
+          onReviewSubmitted={() => setReviewRefreshKey((k) => k + 1)}
+        />
+      )}
     </div>
   );
 }
