@@ -26,6 +26,8 @@ interface Chatbot {
   total_views: number;
   creator_id: string;
   is_mature: boolean;
+  average_rating?: number;
+  review_count?: number;
 }
 
 export default function Discover() {
@@ -75,15 +77,39 @@ export default function Discover() {
   };
 
   const fetchChatbots = async () => {
-    const { data, error } = await supabase
+    // Fetch chatbots
+    const { data: chatbotsData, error } = await supabase
       .from("chatbots")
       .select("*")
       .eq("is_public", true)
       .order("created_at", { ascending: false });
 
-    if (!error && data) {
-      setChatbots(data);
-    }
+    if (error || !chatbotsData) return;
+
+    // Fetch reviews to calculate average ratings
+    const { data: reviewsData } = await supabase
+      .from("reviews")
+      .select("chatbot_id, rating");
+
+    // Calculate average ratings per chatbot
+    const ratingsByBot: Record<string, { sum: number; count: number }> = {};
+    reviewsData?.forEach((r) => {
+      if (!ratingsByBot[r.chatbot_id]) {
+        ratingsByBot[r.chatbot_id] = { sum: 0, count: 0 };
+      }
+      ratingsByBot[r.chatbot_id].sum += r.rating;
+      ratingsByBot[r.chatbot_id].count += 1;
+    });
+
+    const chatbotsWithRatings = chatbotsData.map((bot) => ({
+      ...bot,
+      average_rating: ratingsByBot[bot.id]
+        ? ratingsByBot[bot.id].sum / ratingsByBot[bot.id].count
+        : 0,
+      review_count: ratingsByBot[bot.id]?.count || 0,
+    }));
+
+    setChatbots(chatbotsWithRatings);
   };
 
   const filteredChatbots = chatbots.filter((bot) => {
