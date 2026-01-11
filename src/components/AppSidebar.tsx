@@ -1,6 +1,8 @@
-import { Home, PlusCircle, Bell, MessageSquare, User, Globe } from "lucide-react";
+import { useState, useEffect } from "react";
+import { Home, PlusCircle, Bell, MessageSquare, User, Globe, Coins, ImagePlus } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import { useLocation } from "react-router-dom";
+import { supabase } from "@/integrations/supabase/client";
 import {
   Sidebar,
   SidebarContent,
@@ -14,27 +16,72 @@ import {
 
 const navItems = [
   { title: "Discover", url: "/", icon: Home },
+  { title: "Generate Image", url: "/generate-image", icon: ImagePlus },
   { title: "Create Character", url: "/create", icon: PlusCircle },
-  { title: "Notifications", url: "/notifications", icon: Bell },
-  { title: "Chats", url: "/chats", icon: MessageSquare },
-  { title: "Browser", url: "/browser", icon: Globe },
-  { title: "Profile", url: "/profile", icon: User },
+  { title: "Notification", url: "/notifications", icon: Bell, badge: "new" },
+];
+
+const secondaryItems = [
+  { title: "Subscribe", url: "/subscribe", icon: Coins },
+  { title: "Coins", url: "/coins", icon: Coins },
+  { title: "Chat", url: "/chats", icon: MessageSquare },
 ];
 
 export function AppSidebar() {
   const { state } = useSidebar();
   const location = useLocation();
   const collapsed = state === "collapsed";
+  const [coinBalance, setCoinBalance] = useState(0);
+  const [user, setUser] = useState<any>(null);
+
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setUser(session?.user || null);
+      if (session?.user) {
+        fetchCoinBalance(session.user.id);
+      }
+    });
+
+    const { data: authListener } = supabase.auth.onAuthStateChange(
+      (_event, session) => {
+        setUser(session?.user || null);
+        if (session?.user) {
+          fetchCoinBalance(session.user.id);
+        }
+      }
+    );
+
+    return () => {
+      authListener.subscription.unsubscribe();
+    };
+  }, []);
+
+  const fetchCoinBalance = async (userId: string) => {
+    const { data } = await supabase
+      .from("user_coins")
+      .select("balance")
+      .eq("user_id", userId)
+      .single();
+    
+    if (data) {
+      setCoinBalance(data.balance);
+    }
+  };
 
   return (
-    <Sidebar className={collapsed ? "w-14" : "w-64"} collapsible="icon">
-      <SidebarContent>
-        <div className="p-6">
-          <h1 className={`font-bold bg-gradient-primary bg-clip-text text-transparent transition-all ${collapsed ? "text-xl" : "text-2xl"}`}>
-            {collapsed ? "🐧" : "Penguin Chat"}
-          </h1>
+    <Sidebar className={`${collapsed ? "w-14" : "w-56"} border-r border-sidebar-border bg-sidebar-background`} collapsible="icon">
+      <SidebarContent className="py-4">
+        {/* Logo */}
+        <div className="px-4 pb-4 flex items-center gap-2">
+          <div className="w-8 h-8 rounded-full bg-primary flex items-center justify-center">
+            <span className="text-lg">🐧</span>
+          </div>
+          {!collapsed && (
+            <span className="font-bold text-lg text-foreground">PolyBuzz</span>
+          )}
         </div>
         
+        {/* Main Navigation */}
         <SidebarGroup>
           <SidebarGroupContent>
             <SidebarMenu>
@@ -44,11 +91,20 @@ export function AppSidebar() {
                     <NavLink
                       to={item.url}
                       end={item.url === "/"}
-                      className="flex items-center gap-3 px-3 py-2 rounded-lg transition-all hover:bg-secondary"
-                      activeClassName="bg-primary/10 text-primary border-l-4 border-primary"
+                      className="flex items-center gap-3 px-4 py-2.5 rounded-lg transition-all text-sidebar-foreground hover:bg-sidebar-accent"
+                      activeClassName="bg-primary/20 text-primary"
                     >
-                      <item.icon className="h-5 w-5" />
-                      {!collapsed && <span className="font-medium">{item.title}</span>}
+                      <item.icon className="h-5 w-5 shrink-0" />
+                      {!collapsed && (
+                        <div className="flex items-center gap-2">
+                          <span className="text-sm">{item.title}</span>
+                          {item.badge && (
+                            <span className="text-[10px] bg-red-500 text-white px-1.5 py-0.5 rounded-full">
+                              {item.badge}
+                            </span>
+                          )}
+                        </div>
+                      )}
                     </NavLink>
                   </SidebarMenuButton>
                 </SidebarMenuItem>
@@ -56,6 +112,60 @@ export function AppSidebar() {
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>
+
+        {/* Separator */}
+        <div className="mx-4 my-2 border-t border-sidebar-border" />
+
+        {/* Secondary Navigation */}
+        <SidebarGroup>
+          <SidebarGroupContent>
+            <SidebarMenu>
+              {secondaryItems.map((item) => (
+                <SidebarMenuItem key={item.title}>
+                  <SidebarMenuButton asChild>
+                    <NavLink
+                      to={item.url}
+                      className="flex items-center gap-3 px-4 py-2.5 rounded-lg transition-all text-sidebar-foreground hover:bg-sidebar-accent"
+                      activeClassName="bg-primary/20 text-primary"
+                    >
+                      <item.icon className="h-5 w-5 shrink-0" />
+                      {!collapsed && (
+                        <span className="text-sm">{item.title}</span>
+                      )}
+                    </NavLink>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+              ))}
+            </SidebarMenu>
+          </SidebarGroupContent>
+        </SidebarGroup>
+
+        {/* User Profile at bottom */}
+        {user && (
+          <>
+            <div className="flex-1" />
+            <div className="px-4 py-2">
+              <NavLink
+                to="/profile"
+                className="flex items-center gap-3 px-2 py-2 rounded-lg transition-all text-sidebar-foreground hover:bg-sidebar-accent"
+                activeClassName="bg-primary/20 text-primary"
+              >
+                <div className="w-8 h-8 rounded-full bg-secondary flex items-center justify-center">
+                  <User className="h-4 w-4" />
+                </div>
+                {!collapsed && (
+                  <div className="flex flex-col">
+                    <span className="text-sm font-medium">Profile</span>
+                    <span className="text-xs text-muted-foreground flex items-center gap-1">
+                      <Coins className="h-3 w-3 text-yellow-500" />
+                      {coinBalance.toLocaleString()}
+                    </span>
+                  </div>
+                )}
+              </NavLink>
+            </div>
+          </>
+        )}
       </SidebarContent>
     </Sidebar>
   );

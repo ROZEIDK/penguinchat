@@ -208,6 +208,33 @@ export type Database = {
         }
         Relationships: []
       }
+      coin_transactions: {
+        Row: {
+          amount: number
+          created_at: string
+          description: string | null
+          id: string
+          transaction_type: string
+          user_id: string
+        }
+        Insert: {
+          amount: number
+          created_at?: string
+          description?: string | null
+          id?: string
+          transaction_type: string
+          user_id: string
+        }
+        Update: {
+          amount?: number
+          created_at?: string
+          description?: string | null
+          id?: string
+          transaction_type?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       conversations: {
         Row: {
           chatbot_id: string
@@ -239,6 +266,39 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      daily_tasks: {
+        Row: {
+          created_at: string
+          description: string
+          id: string
+          is_active: boolean
+          name: string
+          required_count: number
+          reward_coins: number
+          task_type: string
+        }
+        Insert: {
+          created_at?: string
+          description: string
+          id?: string
+          is_active?: boolean
+          name: string
+          required_count?: number
+          reward_coins?: number
+          task_type: string
+        }
+        Update: {
+          created_at?: string
+          description?: string
+          id?: string
+          is_active?: boolean
+          name?: string
+          required_count?: number
+          reward_coins?: number
+          task_type?: string
+        }
+        Relationships: []
       }
       messages: {
         Row: {
@@ -336,6 +396,77 @@ export type Database = {
             columns: ["chatbot_id"]
             isOneToOne: false
             referencedRelation: "chatbots"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      user_coins: {
+        Row: {
+          balance: number
+          created_at: string
+          id: string
+          total_earned: number
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          balance?: number
+          created_at?: string
+          id?: string
+          total_earned?: number
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          balance?: number
+          created_at?: string
+          id?: string
+          total_earned?: number
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      user_task_progress: {
+        Row: {
+          created_at: string
+          current_count: number
+          id: string
+          is_claimed: boolean
+          is_completed: boolean
+          reset_date: string
+          task_id: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          current_count?: number
+          id?: string
+          is_claimed?: boolean
+          is_completed?: boolean
+          reset_date?: string
+          task_id: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          current_count?: number
+          id?: string
+          is_claimed?: boolean
+          is_completed?: boolean
+          reset_date?: string
+          task_id?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "user_task_progress_task_id_fkey"
+            columns: ["task_id"]
+            isOneToOne: false
+            referencedRelation: "daily_tasks"
             referencedColumns: ["id"]
           },
         ]

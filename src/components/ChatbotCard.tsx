@@ -1,9 +1,7 @@
 import { useNavigate } from "react-router-dom";
-import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Eye, Edit, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { StarRating } from "@/components/StarRating";
 
 interface ChatbotCardProps {
   chatbot: {
@@ -21,37 +19,58 @@ interface ChatbotCardProps {
   onDelete?: (id: string) => void;
 }
 
+function formatViews(views: number): string {
+  if (views >= 1000000) {
+    return (views / 1000000).toFixed(1) + "M";
+  }
+  if (views >= 1000) {
+    return (views / 1000).toFixed(1) + "K";
+  }
+  return views.toString();
+}
+
 export function ChatbotCard({ chatbot, currentUserId, onDelete }: ChatbotCardProps) {
   const navigate = useNavigate();
   const isOwner = currentUserId && chatbot.creator_id === currentUserId;
 
   const handleCardClick = (e: React.MouseEvent) => {
-    // Don't navigate if clicking on action buttons
-    if ((e.target as HTMLElement).closest('button')) {
+    if ((e.target as HTMLElement).closest("button")) {
       return;
     }
     navigate(`/chat/${chatbot.id}`);
   };
 
   return (
-    <Card
+    <div
       onClick={handleCardClick}
-      className="group cursor-pointer bg-gradient-card border-border hover:border-primary/50 transition-all duration-300 hover:shadow-glow overflow-hidden"
+      className="group cursor-pointer relative rounded-xl overflow-hidden bg-card hover:ring-2 hover:ring-primary/50 transition-all duration-300"
     >
-      <div className="aspect-square relative overflow-hidden">
+      {/* Image Container - Taller aspect ratio like reference */}
+      <div className="relative aspect-[3/4] overflow-hidden">
         {chatbot.avatar_url ? (
           <img
             src={chatbot.avatar_url}
             alt={chatbot.name}
-            className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-300"
+            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
           />
         ) : (
-          <div className="w-full h-full bg-gradient-primary flex items-center justify-center">
-            <span className="text-6xl font-bold text-primary-foreground">
+          <div className="w-full h-full bg-gradient-to-br from-primary/40 to-accent/40 flex items-center justify-center">
+            <span className="text-6xl font-bold text-primary-foreground/80">
               {chatbot.name[0]}
             </span>
           </div>
         )}
+        
+        {/* Gradient overlay at bottom */}
+        <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent" />
+        
+        {/* View count badge */}
+        <div className="absolute bottom-2 left-2 flex items-center gap-1 text-white text-sm">
+          <Eye className="h-4 w-4" />
+          <span>{formatViews(chatbot.total_views)}</span>
+        </div>
+
+        {/* Owner actions */}
         {isOwner && (
           <div className="absolute top-2 right-2 flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
             <Button
@@ -61,7 +80,7 @@ export function ChatbotCard({ chatbot, currentUserId, onDelete }: ChatbotCardPro
                 e.stopPropagation();
                 navigate(`/edit/${chatbot.id}`);
               }}
-              className="h-8 w-8"
+              className="h-8 w-8 bg-black/50 hover:bg-black/70 border-0"
             >
               <Edit className="h-4 w-4" />
             </Button>
@@ -79,31 +98,29 @@ export function ChatbotCard({ chatbot, currentUserId, onDelete }: ChatbotCardPro
           </div>
         )}
       </div>
-      <div className="p-4">
-        <h3 className="font-bold text-xl mb-2 truncate">{chatbot.name}</h3>
-        <p className="text-sm text-muted-foreground line-clamp-2 mb-3">
+
+      {/* Content */}
+      <div className="p-3">
+        <h3 className="font-semibold text-base mb-1 truncate text-foreground">
+          {chatbot.name}
+        </h3>
+        <p className="text-xs text-muted-foreground line-clamp-2 mb-3 min-h-[2.5rem]">
           {chatbot.description}
         </p>
-        <div className="flex flex-wrap gap-2 mb-3">
-          {chatbot.tags.slice(0, 3).map((tag) => (
-            <Badge key={tag} variant="secondary" className="text-xs">
+        
+        {/* Tags */}
+        <div className="flex flex-wrap gap-1.5">
+          {chatbot.tags.slice(0, 4).map((tag) => (
+            <Badge
+              key={tag}
+              variant="secondary"
+              className="text-[10px] px-2 py-0.5 bg-secondary/80 text-muted-foreground hover:bg-secondary"
+            >
               {tag}
             </Badge>
           ))}
         </div>
-        <div className="flex items-center justify-between text-sm text-muted-foreground">
-          <div className="flex items-center">
-            <Eye className="h-4 w-4 mr-1" />
-            {chatbot.total_views} views
-          </div>
-          {chatbot.average_rating !== undefined && chatbot.average_rating > 0 && (
-            <div className="flex items-center gap-1">
-              <StarRating rating={Math.round(chatbot.average_rating)} size="sm" />
-              <span className="text-xs">({chatbot.review_count})</span>
-            </div>
-          )}
-        </div>
       </div>
-    </Card>
+    </div>
   );
 }
