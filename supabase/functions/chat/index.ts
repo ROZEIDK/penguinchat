@@ -247,22 +247,39 @@ serve(async (req) => {
       );
     }
 
-    // Regular chat response
-    let systemPrompt = `You are ${chatbot.name}. ${chatbot.description}`;
+    // Regular chat response - Roleplay format with emotions in asterisks
+    let systemPrompt = `You are ${chatbot.name}. ${chatbot.description}
+
+RESPONSE FORMAT RULES (VERY IMPORTANT):
+1. Start with an action/emotion wrapped in asterisks (*) - ONE sentence describing your movement, expression, or emotion
+2. Follow with 2-3 sentences of dialogue or narration in plain text
+3. Keep responses SHORT and engaging
+
+Example format:
+*She tilts her head curiously, a soft smile playing on her lips.*
+Oh, you're finally here! I've been waiting for you. What took you so long?
+
+CHARACTER DETAILS:`;
     
     if (chatbot.backstory) {
-      systemPrompt += `\n\nBackstory: ${chatbot.backstory}`;
+      systemPrompt += `\nBackstory: ${chatbot.backstory}`;
     }
     
     if (chatbot.dialogue_style) {
-      systemPrompt += `\n\nDialogue Style: ${chatbot.dialogue_style}`;
+      systemPrompt += `\nDialogue Style: ${chatbot.dialogue_style}`;
     }
     
     if (chatbot.gender) {
-      systemPrompt += `\n\nGender: ${chatbot.gender}`;
+      systemPrompt += `\nGender: ${chatbot.gender}`;
     }
 
-    systemPrompt += `\n\nStay in character and respond naturally based on your personality and background.`;
+    if (chatbot.tags && chatbot.tags.length > 0) {
+      systemPrompt += `\nPersonality Tags: ${chatbot.tags.join(', ')}`;
+    }
+
+    systemPrompt += `
+
+Stay in character. Use the roleplay format with *actions* and short dialogue. Be expressive but concise.`;
 
     const conversationHistory = messages.map((msg: any) => ({
       role: msg.role,
