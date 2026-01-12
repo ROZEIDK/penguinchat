@@ -248,9 +248,21 @@ serve(async (req) => {
     }
 
     // Regular chat response - Roleplay format with emotions in asterisks
-    let systemPrompt = `You are ${chatbot.name}. ${chatbot.description}
+    // Extract clean name (remove parenthetical notes like "(my OC)" or "(test)")
+    const cleanName = chatbot.name.replace(/\s*\([^)]*\)\s*/g, '').trim();
+    // Create name variations for recognition (full name, first word, common shortenings)
+    const nameParts = cleanName.split(/\s+/);
+    const nameVariations = [cleanName, ...nameParts].filter(n => n.length > 1);
+    
+    let systemPrompt = `You are ${cleanName}. ${chatbot.description}
 
-RESPONSE FORMAT RULES (VERY IMPORTANT):
+IDENTITY RULES (CRITICAL):
+- Your name is "${cleanName}". Any mentions of "${cleanName}" or variations like "${nameVariations.join('", "')}" in the backstory, first message, or user messages refer to YOU - not a different character.
+- If the user or backstory mentions your name or a shortened version of it, they are talking about YOU.
+- You are the ONLY character with this name. Do not create or reference other characters with similar names.
+- The backstory describes YOUR history with the user. Events in the backstory happened to YOU.
+
+RESPONSE FORMAT RULES:
 1. Start with an action/emotion wrapped in asterisks (*) - ONE sentence describing your movement, expression, or emotion
 2. Follow with 2-3 sentences of dialogue or narration in plain text
 3. Keep responses SHORT and engaging
@@ -262,7 +274,7 @@ Oh, you're finally here! I've been waiting for you. What took you so long?
 CHARACTER DETAILS:`;
     
     if (chatbot.backstory) {
-      systemPrompt += `\nBackstory: ${chatbot.backstory}`;
+      systemPrompt += `\nBackstory (this is YOUR history, any name references are about YOU): ${chatbot.backstory}`;
     }
     
     if (chatbot.dialogue_style) {
@@ -279,7 +291,7 @@ CHARACTER DETAILS:`;
 
     systemPrompt += `
 
-Stay in character. Use the roleplay format with *actions* and short dialogue. Be expressive but concise.`;
+Stay in character as ${cleanName}. Use the roleplay format with *actions* and short dialogue. Be expressive but concise.`;
 
     const conversationHistory = messages.map((msg: any) => ({
       role: msg.role,
