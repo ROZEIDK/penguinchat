@@ -4,7 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
-import { Send, Loader2, ArrowLeft, Edit, Trash2, ImagePlus, Star } from "lucide-react";
+import { Send, Loader2, ArrowLeft, Edit, Trash2, ImagePlus, Star, RotateCcw, Archive, MoreVertical } from "lucide-react";
 import { ReviewDialog } from "@/components/ReviewDialog";
 import { ReviewsList } from "@/components/ReviewsList";
 import {
@@ -17,6 +17,13 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 
 interface Message {
   id: string;
@@ -36,6 +43,7 @@ interface Chatbot {
   creator_id: string;
   is_mature: boolean | null;
   image_generation_model: string | null;
+  tags: string[] | null;
 }
 
 export default function ChatInterface() {
@@ -48,6 +56,10 @@ export default function ChatInterface() {
   const [loading, setLoading] = useState(false);
   const [sending, setSending] = useState(false);
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
+  const [showResetDialog, setShowResetDialog] = useState(false);
+  const [showArchiveDialog, setShowArchiveDialog] = useState(false);
+  const [showDeleteMessageDialog, setShowDeleteMessageDialog] = useState(false);
+  const [selectedMessage, setSelectedMessage] = useState<Message | null>(null);
   const [deleting, setDeleting] = useState(false);
   const [showReviewDialog, setShowReviewDialog] = useState(false);
   const [showReviews, setShowReviews] = useState(false);
@@ -131,6 +143,14 @@ export default function ChatInterface() {
 
         setMessages([introMsg as Message]);
       } else {
+        // Unarchive if archived
+        if (convData.is_archived) {
+          await supabase
+            .from("conversations")
+            .update({ is_archived: false })
+            .eq("id", convData.id);
+        }
+
         // Load existing messages
         const { data: msgs } = await supabase
           .from("messages")
@@ -213,7 +233,7 @@ export default function ChatInterface() {
     }
   };
 
-  const handleDelete = async () => {
+  const handleDeleteChatbot = async () => {
     setDeleting(true);
     try {
       const { error } = await supabase
@@ -235,6 +255,111 @@ export default function ChatInterface() {
       setDeleting(false);
       setShowDeleteDialog(false);
     }
+  };
+
+  const handleResetChat = async () => {
+    if (!conversation || !chatbot) return;
+    setDeleting(true);
+
+    try {
+      // Delete all messages
+      await supabase
+        .from("messages")
+        .delete()
+        .eq("conversation_id", conversation.id);
+
+      // Re-add intro message
+      const { data: introMsg } = await supabase
+        .from("messages")
+        .insert({
+          conversation_id: conversation.id,
+          role: "assistant",
+          content: chatbot.intro_message,
+        })
+        .select()
+        .single();
+
+      setMessages([introMsg as Message]);
+      toast({ title: "Chat reset to start!" });
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: error.message,
+        variant: "destructive",
+      });
+    } finally {
+      setDeleting(false);
+      setShowResetDialog(false);
+    }
+  };
+
+  const handleArchiveChat = async () => {
+    if (!conversation) return;
+
+    try {
+      await supabase
+        .from("conversations")
+        .update({ is_archived: true })
+        .eq("id", conversation.id);
+
+      toast({ title: "Chat archived", description: "You can find it in the Archived tab" });
+      navigate("/chats");
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: error.message,
+        variant: "destructive",
+      });
+    }
+    setShowArchiveDialog(false);
+  };
+
+  const handleDeleteMessage = async () => {
+    if (!selectedMessage) return;
+
+    try {
+      await supabase
+        .from("messages")
+        .delete()
+        .eq("id", selectedMessage.id);
+
+      setMessages((prev) => prev.filter((m) => m.id !== selectedMessage.id));
+      toast({ title: "Message deleted" });
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: error.message,
+        variant: "destructive",
+      });
+    } finally {
+      setShowDeleteMessageDialog(false);
+      setSelectedMessage(null);
+    }
+  };
+
+  const confirmDeleteMessage = (msg: Message) => {
+    setSelectedMessage(msg);
+    setShowDeleteMessageDialog(true);
+  };
+
+  // Format message content with italics for *actions*
+  const formatMessage = (content: string) => {
+    if (content.startsWith("data:image/") || content.startsWith("http")) {
+      return <img src={content} alt="Generated" className="max-w-full rounded-lg" />;
+    }
+
+    // Split by asterisk patterns and format
+    const parts = content.split(/(\*[^*]+\*)/g);
+    return parts.map((part, i) => {
+      if (part.startsWith("*") && part.endsWith("*")) {
+        return (
+          <em key={i} className="text-muted-foreground block mb-1">
+            {part.slice(1, -1)}
+          </em>
+        );
+      }
+      return <span key={i}>{part}</span>;
+    });
   };
 
   if (loading) {
@@ -284,7 +409,7 @@ export default function ChatInterface() {
           )}
           <div className="flex-1">
             <h2 className="font-bold text-lg">{chatbot.name}</h2>
-            <p className="text-sm text-muted-foreground">
+            <p className="text-sm text-muted-foreground line-clamp-1">
               {chatbot.description}
             </p>
           </div>
@@ -306,24 +431,41 @@ export default function ChatInterface() {
                 Rate
               </Button>
             )}
-            {isOwner && (
-              <>
-                <Button
-                  variant="outline"
-                  size="icon"
-                  onClick={() => navigate(`/edit/${chatbotId}`)}
-                >
-                  <Edit className="h-4 w-4" />
+            
+            {/* Chat Options Menu */}
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="outline" size="icon">
+                  <MoreVertical className="h-4 w-4" />
                 </Button>
-                <Button
-                  variant="outline"
-                  size="icon"
-                  onClick={() => setShowDeleteDialog(true)}
-                >
-                  <Trash2 className="h-4 w-4" />
-                </Button>
-              </>
-            )}
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuItem onClick={() => setShowResetDialog(true)}>
+                  <RotateCcw className="h-4 w-4 mr-2" />
+                  Reset Chat
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => setShowArchiveDialog(true)}>
+                  <Archive className="h-4 w-4 mr-2" />
+                  Archive Chat
+                </DropdownMenuItem>
+                {isOwner && (
+                  <>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem onClick={() => navigate(`/edit/${chatbotId}`)}>
+                      <Edit className="h-4 w-4 mr-2" />
+                      Edit Chatbot
+                    </DropdownMenuItem>
+                    <DropdownMenuItem 
+                      onClick={() => setShowDeleteDialog(true)}
+                      className="text-destructive focus:text-destructive"
+                    >
+                      <Trash2 className="h-4 w-4 mr-2" />
+                      Delete Chatbot
+                    </DropdownMenuItem>
+                  </>
+                )}
+              </DropdownMenuContent>
+            </DropdownMenu>
           </div>
         </div>
 
@@ -341,7 +483,7 @@ export default function ChatInterface() {
           {messages.map((msg) => (
             <div
               key={msg.id}
-              className={`flex gap-3 ${
+              className={`flex gap-3 group ${
                 msg.role === "user" ? "justify-end" : "justify-start"
               }`}
             >
@@ -352,22 +494,24 @@ export default function ChatInterface() {
                   className="w-10 h-10 rounded-lg object-cover"
                 />
               )}
-              <div
-                className={`px-4 py-3 rounded-2xl max-w-[70%] ${
-                  msg.role === "user"
-                    ? "bg-gradient-primary text-primary-foreground"
-                    : "bg-card/80 backdrop-blur-lg border border-border"
-                }`}
-              >
-                {msg.content.startsWith("data:image/") ? (
-                  <img 
-                    src={msg.content} 
-                    alt="Generated" 
-                    className="max-w-full rounded-lg"
-                  />
-                ) : (
-                  msg.content
-                )}
+              <div className="flex items-start gap-2">
+                <div
+                  className={`px-4 py-3 rounded-2xl max-w-[70%] ${
+                    msg.role === "user"
+                      ? "bg-gradient-primary text-primary-foreground"
+                      : "bg-card/80 backdrop-blur-lg border border-border"
+                  }`}
+                >
+                  {formatMessage(msg.content)}
+                </div>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="opacity-0 group-hover:opacity-100 transition-opacity h-8 w-8"
+                  onClick={() => confirmDeleteMessage(msg)}
+                >
+                  <Trash2 className="h-3 w-3 text-muted-foreground" />
+                </Button>
               </div>
             </div>
           ))}
@@ -418,7 +562,7 @@ export default function ChatInterface() {
         </div>
       </div>
 
-      {/* Delete Confirmation Dialog */}
+      {/* Delete Chatbot Dialog */}
       <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
         <AlertDialogContent>
           <AlertDialogHeader>
@@ -431,18 +575,72 @@ export default function ChatInterface() {
           <AlertDialogFooter>
             <AlertDialogCancel>Cancel</AlertDialogCancel>
             <AlertDialogAction
-              onClick={handleDelete}
+              onClick={handleDeleteChatbot}
               disabled={deleting}
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
             >
-              {deleting ? (
-                <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Deleting...
-                </>
-              ) : (
-                "Delete"
-              )}
+              {deleting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Reset Chat Dialog */}
+      <AlertDialog open={showResetDialog} onOpenChange={setShowResetDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Reset Chat</AlertDialogTitle>
+            <AlertDialogDescription>
+              This will delete all messages and start fresh with {chatbot.name}'s intro message.
+              This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={handleResetChat} disabled={deleting}>
+              {deleting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+              Reset
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Archive Chat Dialog */}
+      <AlertDialog open={showArchiveDialog} onOpenChange={setShowArchiveDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Archive Chat</AlertDialogTitle>
+            <AlertDialogDescription>
+              This will archive your conversation with {chatbot.name}. 
+              You can restore it anytime from the Archived tab in your chats.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={handleArchiveChat}>
+              Archive
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Delete Message Dialog */}
+      <AlertDialog open={showDeleteMessageDialog} onOpenChange={setShowDeleteMessageDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Message</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to delete this message?
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleDeleteMessage}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              Delete
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
