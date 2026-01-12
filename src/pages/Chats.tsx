@@ -3,18 +3,37 @@ import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
 import { formatDistanceToNow } from "date-fns";
-import { Search, Loader2 } from "lucide-react";
+import { Search, Loader2, Archive, ArchiveRestore, Trash2, MoreVertical } from "lucide-react";
+import { useToast } from "@/hooks/use-toast";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 interface Conversation {
   id: string;
   chatbot_id: string;
   last_message_at: string;
+  is_archived: boolean;
   chatbots: {
     name: string;
     avatar_url: string | null;
   } | null;
-  last_message_content?: string;
 }
 
 interface SearchResult {
@@ -32,7 +51,11 @@ export default function Chats() {
   const [searchQuery, setSearchQuery] = useState("");
   const [searchResults, setSearchResults] = useState<SearchResult[]>([]);
   const [searching, setSearching] = useState(false);
+  const [activeTab, setActiveTab] = useState("active");
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [selectedConversation, setSelectedConversation] = useState<Conversation | null>(null);
   const navigate = useNavigate();
+  const { toast } = useToast();
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
@@ -60,17 +83,16 @@ export default function Chats() {
   const fetchConversations = async (userId: string) => {
     const { data, error } = await supabase
       .from("conversations")
-      .select(
-        `
+      .select(`
         id,
         chatbot_id,
         last_message_at,
+        is_archived,
         chatbots (
           name,
           avatar_url
         )
-      `
-      )
+      `)
       .eq("user_id", userId)
       .order("last_message_at", { ascending: false });
 
@@ -119,6 +141,60 @@ export default function Chats() {
     setSearching(false);
   };
 
+  const toggleArchive = async (conv: Conversation, e: React.MouseEvent) => {
+    e.stopPropagation();
+    const newArchiveState = !conv.is_archived;
+    
+    const { error } = await supabase
+      .from("conversations")
+      .update({ is_archived: newArchiveState })
+      .eq("id", conv.id);
+
+    if (error) {
+      toast({ title: "Error", description: error.message, variant: "destructive" });
+    } else {
+      toast({ 
+        title: newArchiveState ? "Chat archived" : "Chat restored",
+        description: newArchiveState 
+          ? "You can find it in the Archived tab" 
+          : "Chat is now active again"
+      });
+      fetchConversations(user.id);
+    }
+  };
+
+  const confirmDelete = (conv: Conversation, e: React.MouseEvent) => {
+    e.stopPropagation();
+    setSelectedConversation(conv);
+    setDeleteDialogOpen(true);
+  };
+
+  const deleteConversation = async () => {
+    if (!selectedConversation) return;
+
+    // Delete all messages first
+    await supabase
+      .from("messages")
+      .delete()
+      .eq("conversation_id", selectedConversation.id);
+
+    // Delete conversation
+    const { error } = await supabase
+      .from("conversations")
+      .delete()
+      .eq("id", selectedConversation.id);
+
+    if (error) {
+      toast({ title: "Error", description: error.message, variant: "destructive" });
+    } else {
+      toast({ title: "Chat deleted permanently" });
+      fetchConversations(user.id);
+    }
+    
+    setDeleteDialogOpen(false);
+    setSelectedConversation(null);
+  };
+
   const highlightMatch = (text: string, query: string) => {
     if (!query) return text;
     const parts = text.split(new RegExp(`(${query})`, "gi"));
@@ -134,6 +210,75 @@ export default function Chats() {
   };
 
   const showSearchResults = searchQuery.trim().length >= 2;
+  const activeConversations = conversations.filter(c => !c.is_archived);
+  const archivedConversations = conversations.filter(c => c.is_archived);
+
+  const renderConversationCard = (conv: Conversation) => {
+    if (!conv.chatbots) return null;
+
+    return (
+      <Card
+        key={conv.id}
+        onClick={() => navigate(`/chat/${conv.chatbot_id}`)}
+        className="p-4 bg-gradient-card border-border hover:border-primary/50 transition-all cursor-pointer group"
+      >
+        <div className="flex items-center gap-4">
+          {conv.chatbots.avatar_url ? (
+            <img
+              src={conv.chatbots.avatar_url}
+              alt={conv.chatbots.name}
+              className="w-14 h-14 rounded-lg object-cover"
+            />
+          ) : (
+            <div className="w-14 h-14 rounded-lg bg-gradient-primary flex items-center justify-center">
+              <span className="text-xl font-bold text-primary-foreground">
+                {conv.chatbots.name[0]}
+              </span>
+            </div>
+          )}
+          <div className="flex-1 min-w-0">
+            <h3 className="font-bold text-lg mb-1 truncate">{conv.chatbots.name}</h3>
+            <p className="text-sm text-muted-foreground">
+              {formatDistanceToNow(new Date(conv.last_message_at), { addSuffix: true })}
+            </p>
+          </div>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
+              <Button 
+                variant="ghost" 
+                size="icon"
+                className="opacity-0 group-hover:opacity-100 transition-opacity"
+              >
+                <MoreVertical className="h-4 w-4" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuItem onClick={(e) => toggleArchive(conv, e)}>
+                {conv.is_archived ? (
+                  <>
+                    <ArchiveRestore className="h-4 w-4 mr-2" />
+                    Restore Chat
+                  </>
+                ) : (
+                  <>
+                    <Archive className="h-4 w-4 mr-2" />
+                    Archive Chat
+                  </>
+                )}
+              </DropdownMenuItem>
+              <DropdownMenuItem 
+                onClick={(e) => confirmDelete(conv, e)}
+                className="text-destructive focus:text-destructive"
+              >
+                <Trash2 className="h-4 w-4 mr-2" />
+                Delete Permanently
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </div>
+      </Card>
+    );
+  };
 
   return (
     <div className="min-h-screen p-6">
@@ -207,58 +352,85 @@ export default function Chats() {
           </div>
         )}
 
-        {/* Conversations List */}
+        {/* Conversations Tabs */}
         {!showSearchResults && (
-          <>
-            {conversations.length === 0 ? (
-              <div className="text-center py-16">
-                <p className="text-xl text-muted-foreground">
-                  You haven't started any conversations yet.
-                </p>
-              </div>
-            ) : (
-              <div className="space-y-4">
-                {conversations.map((conv) => {
-                  if (!conv.chatbots) return null;
-                  
-                  return (
-                    <Card
-                      key={conv.id}
-                      onClick={() => navigate(`/chat/${conv.chatbot_id}`)}
-                      className="p-6 bg-gradient-card border-border hover:border-primary/50 transition-all cursor-pointer"
-                    >
-                      <div className="flex items-center gap-4">
-                        {conv.chatbots.avatar_url ? (
-                          <img
-                            src={conv.chatbots.avatar_url}
-                            alt={conv.chatbots.name}
-                            className="w-16 h-16 rounded-lg object-cover"
-                          />
-                        ) : (
-                          <div className="w-16 h-16 rounded-lg bg-gradient-primary flex items-center justify-center">
-                            <span className="text-2xl font-bold text-primary-foreground">
-                              {conv.chatbots.name[0]}
-                            </span>
-                          </div>
-                        )}
-                        <div className="flex-1">
-                          <h3 className="font-bold text-xl mb-1">{conv.chatbots.name}</h3>
-                          <p className="text-sm text-muted-foreground">
-                            Last active{" "}
-                            {formatDistanceToNow(new Date(conv.last_message_at), {
-                              addSuffix: true,
-                            })}
-                          </p>
-                        </div>
-                      </div>
-                    </Card>
-                  );
-                })}
-              </div>
-            )}
-          </>
+          <Tabs value={activeTab} onValueChange={setActiveTab}>
+            <TabsList className="mb-6 bg-card">
+              <TabsTrigger value="active" className="gap-2">
+                Active
+                {activeConversations.length > 0 && (
+                  <span className="bg-primary/20 text-primary px-2 py-0.5 rounded-full text-xs">
+                    {activeConversations.length}
+                  </span>
+                )}
+              </TabsTrigger>
+              <TabsTrigger value="archived" className="gap-2">
+                <Archive className="h-4 w-4" />
+                Archived
+                {archivedConversations.length > 0 && (
+                  <span className="bg-muted text-muted-foreground px-2 py-0.5 rounded-full text-xs">
+                    {archivedConversations.length}
+                  </span>
+                )}
+              </TabsTrigger>
+            </TabsList>
+
+            <TabsContent value="active">
+              {activeConversations.length === 0 ? (
+                <div className="text-center py-16">
+                  <p className="text-xl text-muted-foreground">
+                    No active conversations yet.
+                  </p>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {activeConversations.map(renderConversationCard)}
+                </div>
+              )}
+            </TabsContent>
+
+            <TabsContent value="archived">
+              {archivedConversations.length === 0 ? (
+                <div className="text-center py-16">
+                  <Archive className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
+                  <p className="text-xl text-muted-foreground">
+                    No archived chats
+                  </p>
+                  <p className="text-sm text-muted-foreground mt-2">
+                    Archived chats will appear here
+                  </p>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {archivedConversations.map(renderConversationCard)}
+                </div>
+              )}
+            </TabsContent>
+          </Tabs>
         )}
       </div>
+
+      {/* Delete Confirmation Dialog */}
+      <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Chat Permanently?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This will permanently delete all messages in this conversation with{" "}
+              {selectedConversation?.chatbots?.name}. This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={deleteConversation}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

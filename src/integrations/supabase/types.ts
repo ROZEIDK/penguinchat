@@ -240,6 +240,7 @@ export type Database = {
           chatbot_id: string
           created_at: string
           id: string
+          is_archived: boolean
           last_message_at: string
           user_id: string
         }
@@ -247,6 +248,7 @@ export type Database = {
           chatbot_id: string
           created_at?: string
           id?: string
+          is_archived?: boolean
           last_message_at?: string
           user_id: string
         }
@@ -254,6 +256,7 @@ export type Database = {
           chatbot_id?: string
           created_at?: string
           id?: string
+          is_archived?: boolean
           last_message_at?: string
           user_id?: string
         }
