@@ -55,7 +55,7 @@ export function ChatbotCard({ chatbot, currentUserId, onDelete }: ChatbotCardPro
           />
         ) : (
           <div className="w-full h-full bg-gradient-to-br from-primary/40 to-accent/40 flex items-center justify-center">
-            <span className="text-6xl font-bold text-primary-foreground/80">
+            <span className="text-4xl md:text-6xl font-bold text-primary-foreground/80">
               {chatbot.name[0]}
             </span>
           </div>
@@ -64,9 +64,9 @@ export function ChatbotCard({ chatbot, currentUserId, onDelete }: ChatbotCardPro
         {/* Gradient overlay at bottom */}
         <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent" />
         
-        {/* View count badge */}
-        <div className="absolute bottom-2 left-2 flex items-center gap-1 text-white text-sm">
-          <Eye className="h-4 w-4" />
+        {/* View count badge - positioned like reference */}
+        <div className="absolute bottom-2 left-2 flex items-center gap-1 text-white text-xs md:text-sm bg-black/40 px-1.5 py-0.5 rounded">
+          <Eye className="h-3 w-3 md:h-4 md:w-4" />
           <span>{formatViews(chatbot.total_views)}</span>
         </div>
 
@@ -80,9 +80,9 @@ export function ChatbotCard({ chatbot, currentUserId, onDelete }: ChatbotCardPro
                 e.stopPropagation();
                 navigate(`/edit/${chatbot.id}`);
               }}
-              className="h-8 w-8 bg-black/50 hover:bg-black/70 border-0"
+              className="h-7 w-7 md:h-8 md:w-8 bg-black/50 hover:bg-black/70 border-0"
             >
-              <Edit className="h-4 w-4" />
+              <Edit className="h-3 w-3 md:h-4 md:w-4" />
             </Button>
             <Button
               size="icon"
@@ -91,35 +91,22 @@ export function ChatbotCard({ chatbot, currentUserId, onDelete }: ChatbotCardPro
                 e.stopPropagation();
                 onDelete?.(chatbot.id);
               }}
-              className="h-8 w-8"
+              className="h-7 w-7 md:h-8 md:w-8"
             >
-              <Trash2 className="h-4 w-4" />
+              <Trash2 className="h-3 w-3 md:h-4 md:w-4" />
             </Button>
           </div>
         )}
       </div>
 
-      {/* Content */}
-      <div className="p-3">
-        <h3 className="font-semibold text-base mb-1 truncate text-foreground">
+      {/* Content - Compact for mobile */}
+      <div className="p-2 md:p-3">
+        <h3 className="font-semibold text-sm md:text-base mb-0.5 md:mb-1 truncate text-foreground">
           {chatbot.name}
         </h3>
-        <p className="text-xs text-muted-foreground line-clamp-2 mb-3 min-h-[2.5rem]">
+        <p className="text-[11px] md:text-xs text-muted-foreground line-clamp-2 min-h-[2rem] md:min-h-[2.5rem]">
           {chatbot.description}
         </p>
-        
-        {/* Tags */}
-        <div className="flex flex-wrap gap-1.5">
-          {chatbot.tags.slice(0, 4).map((tag) => (
-            <Badge
-              key={tag}
-              variant="secondary"
-              className="text-[10px] px-2 py-0.5 bg-secondary/80 text-muted-foreground hover:bg-secondary"
-            >
-              {tag}
-            </Badge>
-          ))}
-        </div>
       </div>
     </div>
   );

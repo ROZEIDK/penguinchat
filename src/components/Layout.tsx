@@ -1,6 +1,7 @@
 import { ReactNode } from "react";
 import { SidebarProvider } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/AppSidebar";
+import { MobileBottomNav } from "@/components/MobileBottomNav";
 import { useLocation } from "react-router-dom";
 
 interface LayoutProps {
@@ -18,10 +19,15 @@ export function Layout({ children }: LayoutProps) {
   return (
     <SidebarProvider>
       <div className="flex min-h-screen w-full">
-        <AppSidebar />
-        <main className="flex-1 overflow-auto">
+        {/* Desktop sidebar - hidden on mobile */}
+        <div className="hidden md:block">
+          <AppSidebar />
+        </div>
+        <main className="flex-1 overflow-auto pb-20 md:pb-0">
           {children}
         </main>
+        {/* Mobile bottom nav */}
+        <MobileBottomNav />
       </div>
     </SidebarProvider>
   );
