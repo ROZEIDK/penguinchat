@@ -24,17 +24,75 @@ export default function Auth() {
     });
   }, [navigate]);
 
+  const trackLoginTask = async (userId: string) => {
+    try {
+      const today = new Date().toISOString().split("T")[0];
+      
+      // Get login task
+      const { data: loginTask } = await supabase
+        .from("daily_tasks")
+        .select("*")
+        .eq("task_type", "login")
+        .eq("is_active", true)
+        .single();
+
+      if (!loginTask) return;
+
+      // Check if already logged in today
+      const { data: existingProgress } = await supabase
+        .from("user_task_progress")
+        .select("*")
+        .eq("user_id", userId)
+        .eq("task_id", loginTask.id)
+        .eq("reset_date", today)
+        .single();
+
+      if (existingProgress) return; // Already tracked
+
+      // Create progress for today
+      await supabase.from("user_task_progress").insert({
+        user_id: userId,
+        task_id: loginTask.id,
+        current_count: 1,
+        is_completed: true,
+        reset_date: today,
+      });
+
+      // Ensure user has coins record
+      const { data: coinsData } = await supabase
+        .from("user_coins")
+        .select("*")
+        .eq("user_id", userId)
+        .single();
+
+      if (!coinsData) {
+        await supabase.from("user_coins").insert({
+          user_id: userId,
+          balance: 100, // Starting balance
+        });
+      }
+    } catch (error) {
+      console.error("Error tracking login:", error);
+    }
+  };
+
   const handleAuth = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
 
     try {
       if (isLogin) {
-        const { error } = await supabase.auth.signInWithPassword({
+        const { data, error } = await supabase.auth.signInWithPassword({
           email,
           password,
         });
         if (error) throw error;
+        
+        // Track daily login
+        if (data.user) {
+          await trackLoginTask(data.user.id);
+        }
+        
         toast({ title: "Welcome back!" });
         navigate("/");
       } else {

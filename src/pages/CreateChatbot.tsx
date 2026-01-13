@@ -7,6 +7,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
 import { useToast } from "@/hooks/use-toast";
+import { useCoins } from "@/hooks/useCoins";
 import { Upload, Loader2, X, Eye, EyeOff, MessageCircle } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -27,6 +28,7 @@ export default function CreateChatbot() {
   const [loadingPrivate, setLoadingPrivate] = useState(false);
   const navigate = useNavigate();
   const { toast } = useToast();
+  const { updateTaskProgress } = useCoins(user?.id);
 
   const [formData, setFormData] = useState({
     name: "",
@@ -140,6 +142,9 @@ export default function CreateChatbot() {
       });
 
       if (error) throw error;
+
+      // Track character creation for coins
+      updateTaskProgress("create_character", 1);
 
       toast({ title: "Chatbot created successfully!" });
       navigate("/");

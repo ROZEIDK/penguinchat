@@ -4,6 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
+import { useCoins } from "@/hooks/useCoins";
 import { Send, Loader2, ArrowLeft, Edit, Trash2, ImagePlus, Star, RotateCcw, Archive, MoreVertical } from "lucide-react";
 import { ReviewDialog } from "@/components/ReviewDialog";
 import { ReviewsList } from "@/components/ReviewsList";
@@ -67,6 +68,9 @@ export default function ChatInterface() {
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const navigate = useNavigate();
   const { toast } = useToast();
+  
+  // Coins hook for tracking chat progress
+  const { updateTaskProgress } = useCoins(user?.id);
 
   const isOwner = user && chatbot && user.id === chatbot.creator_id;
 
@@ -193,6 +197,10 @@ export default function ChatInterface() {
         .single();
 
       setMessages((prev) => [...prev, userMsg as Message]);
+
+      // Track chat progress for coins
+      updateTaskProgress("chat_count", 1);
+      updateTaskProgress("unique_chats", 0); // Will be handled separately based on unique chatbot
 
       // Call AI
       const { data, error } = await supabase.functions.invoke("chat", {
