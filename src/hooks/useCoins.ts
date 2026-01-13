@@ -139,13 +139,27 @@ export function useCoins(userId: string | undefined) {
           .update({ current_count: newCount, is_completed: isCompleted })
           .eq("id", progress.id);
       } else {
-        await supabase.from("user_task_progress").insert({
+        const { data: newProgress } = await supabase.from("user_task_progress").insert({
           user_id: userId,
           task_id: task.id,
           current_count: newCount,
           is_completed: isCompleted,
           reset_date: today,
-        });
+        }).select().single();
+
+        if (newProgress) {
+          setTaskProgress((prev) => ({
+            ...prev,
+            [task.id]: {
+              id: newProgress.id,
+              task_id: task.id,
+              current_count: newCount,
+              is_completed: isCompleted,
+              is_claimed: false,
+            },
+          }));
+          return;
+        }
       }
 
       setTaskProgress((prev) => ({
