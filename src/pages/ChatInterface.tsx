@@ -398,7 +398,13 @@ export default function ChatInterface() {
           <Button
             variant="ghost"
             size="icon"
-            onClick={() => navigate("/chats")}
+            onClick={() => {
+              if (window.history.length > 1) {
+                navigate(-1);
+              } else {
+                navigate("/chats");
+              }
+            }}
           >
             <ArrowLeft className="h-5 w-5" />
           </Button>

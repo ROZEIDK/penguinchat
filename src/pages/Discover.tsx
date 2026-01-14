@@ -1,9 +1,9 @@
 import { useState, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, Link } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { Search, LogIn, Star, User as UserIcon, Camera, Coins, Menu } from "lucide-react";
+import { Search, LogIn, Star, User as UserIcon, Camera, Coins, Menu, TrendingUp, Eye } from "lucide-react";
 import { ChatbotCard } from "@/components/ChatbotCard";
 import { useToast } from "@/hooks/use-toast";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -54,8 +54,15 @@ const categoryTags = [
   "Sci-Fi",
 ];
 
+function formatViews(views: number): string {
+  if (views >= 1000000) return (views / 1000000).toFixed(1) + "M";
+  if (views >= 1000) return (views / 1000).toFixed(1) + "K";
+  return views.toString();
+}
+
 export default function Discover() {
   const [chatbots, setChatbots] = useState<Chatbot[]>([]);
+  const [trendingBots, setTrendingBots] = useState<Chatbot[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
   const [genderFilter, setGenderFilter] = useState("all");
   const [categoryFilter, setCategoryFilter] = useState("Recommend");
@@ -87,6 +94,7 @@ export default function Discover() {
     );
 
     fetchChatbots();
+    fetchTrendingBots();
 
     return () => {
       authListener.subscription.unsubscribe();
@@ -148,6 +156,20 @@ export default function Discover() {
     }));
 
     setChatbots(chatbotsWithRatings);
+  };
+
+  const fetchTrendingBots = async () => {
+    // Get top 3 chatbots by views (simulating "this week" by just using total_views)
+    const { data, error } = await supabase
+      .from("chatbots")
+      .select("*")
+      .eq("is_public", true)
+      .order("total_views", { ascending: false })
+      .limit(3);
+
+    if (!error && data) {
+      setTrendingBots(data);
+    }
   };
 
   const filteredChatbots = chatbots.filter((bot) => {
@@ -289,6 +311,50 @@ export default function Discover() {
       </div>
 
       <div className="p-4">
+        {/* Mobile Trending Section */}
+        {trendingBots.length > 0 && (
+          <div className="md:hidden mb-4">
+            <div className="flex items-center gap-2 mb-3">
+              <TrendingUp className="h-4 w-4 text-primary" />
+              <h2 className="text-sm font-semibold">Trending This Week</h2>
+            </div>
+            <div className="flex gap-3 overflow-x-auto pb-2 scrollbar-hide">
+              {trendingBots.map((bot, index) => (
+                <Link
+                  key={bot.id}
+                  to={`/chatbot/${bot.id}`}
+                  className="shrink-0 w-32 group"
+                >
+                  <div className="relative aspect-[3/4] rounded-lg overflow-hidden">
+                    {bot.avatar_url ? (
+                      <img
+                        src={bot.avatar_url}
+                        alt={bot.name}
+                        className="w-full h-full object-cover group-hover:scale-105 transition-transform"
+                      />
+                    ) : (
+                      <div className="w-full h-full bg-gradient-to-br from-primary/40 to-accent/40 flex items-center justify-center">
+                        <span className="text-2xl font-bold">{bot.name[0]}</span>
+                      </div>
+                    )}
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/80 to-transparent" />
+                    <div className="absolute top-1.5 left-1.5 w-6 h-6 rounded-full bg-primary flex items-center justify-center text-xs font-bold text-primary-foreground">
+                      #{index + 1}
+                    </div>
+                    <div className="absolute bottom-1.5 left-1.5 right-1.5">
+                      <p className="text-white text-xs font-medium truncate">{bot.name}</p>
+                      <div className="flex items-center gap-1 text-white/70 text-[10px]">
+                        <Eye className="h-2.5 w-2.5" />
+                        <span>{formatViews(bot.total_views)}</span>
+                      </div>
+                    </div>
+                  </div>
+                </Link>
+              ))}
+            </div>
+          </div>
+        )}
+
         {/* Mobile Category Tabs - Horizontal scroll like reference */}
         <div className="md:hidden mb-4">
           {/* Gender + Categories row */}
@@ -326,6 +392,58 @@ export default function Discover() {
 
         {/* Desktop Filters */}
         <div className="hidden md:block mb-6">
+          {/* Trending This Week */}
+          {trendingBots.length > 0 && (
+            <div className="mb-6">
+              <div className="flex items-center gap-2 mb-4">
+                <TrendingUp className="h-5 w-5 text-primary" />
+                <h2 className="text-lg font-semibold">Trending This Week</h2>
+              </div>
+              <div className="grid grid-cols-3 gap-4">
+                {trendingBots.map((bot, index) => (
+                  <Link
+                    key={bot.id}
+                    to={`/chatbot/${bot.id}`}
+                    className="group relative rounded-xl overflow-hidden bg-card hover:ring-2 hover:ring-primary/50 transition-all"
+                  >
+                    <div className="relative aspect-[16/9] overflow-hidden">
+                      {bot.avatar_url ? (
+                        <img
+                          src={bot.avatar_url}
+                          alt={bot.name}
+                          className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                        />
+                      ) : (
+                        <div className="w-full h-full bg-gradient-to-br from-primary/40 to-accent/40 flex items-center justify-center">
+                          <span className="text-3xl font-bold text-primary-foreground/80">
+                            {bot.name[0]}
+                          </span>
+                        </div>
+                      )}
+                      <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent" />
+                      
+                      {/* Rank badge */}
+                      <div className="absolute top-2 left-2 w-8 h-8 rounded-full bg-primary flex items-center justify-center font-bold text-primary-foreground">
+                        #{index + 1}
+                      </div>
+                      
+                      {/* Views */}
+                      <div className="absolute bottom-2 right-2 flex items-center gap-1 text-white text-xs bg-black/40 px-2 py-1 rounded">
+                        <Eye className="h-3 w-3" />
+                        <span>{formatViews(bot.total_views)}</span>
+                      </div>
+                      
+                      {/* Name overlay */}
+                      <div className="absolute bottom-2 left-2 right-14">
+                        <h3 className="font-semibold text-white truncate">{bot.name}</h3>
+                      </div>
+                    </div>
+                  </Link>
+                ))}
+              </div>
+            </div>
+          )}
+
           {/* Banner Promo Area */}
           <div className="mb-6 rounded-xl overflow-hidden bg-gradient-to-r from-purple-600/40 to-blue-600/40 p-6 relative">
             <div className="relative z-10">
