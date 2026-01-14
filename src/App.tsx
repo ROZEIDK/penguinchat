@@ -12,6 +12,8 @@ import Notifications from "./pages/Notifications";
 import Chats from "./pages/Chats";
 import Profile from "./pages/Profile";
 import ChatInterface from "./pages/ChatInterface";
+import ChatbotDetail from "./pages/ChatbotDetail";
+import UserProfile from "./pages/UserProfile";
 import Browser from "./pages/Browser";
 import NotFound from "./pages/NotFound";
 import Coins from "./pages/Coins";
@@ -35,7 +37,9 @@ const App = () => (
             <Route path="/notifications" element={<Notifications />} />
             <Route path="/chats" element={<Chats />} />
             <Route path="/profile" element={<Profile />} />
+            <Route path="/chatbot/:chatbotId" element={<ChatbotDetail />} />
             <Route path="/chat/:chatbotId" element={<ChatInterface />} />
+            <Route path="/user/:userId" element={<UserProfile />} />
             <Route path="/browser" element={<Browser />} />
             <Route path="/coins" element={<Coins />} />
             <Route path="/generate-image" element={<GenerateImage />} />
