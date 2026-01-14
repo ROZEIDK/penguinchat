@@ -37,7 +37,7 @@ export function ChatbotCard({ chatbot, currentUserId, onDelete }: ChatbotCardPro
     if ((e.target as HTMLElement).closest("button")) {
       return;
     }
-    navigate(`/chat/${chatbot.id}`);
+    navigate(`/chatbot/${chatbot.id}`);
   };
 
   return (
