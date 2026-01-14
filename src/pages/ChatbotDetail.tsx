@@ -6,6 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Loader2, MessageSquare, Eye, ArrowLeft, Star, User } from "lucide-react";
 import { ChatbotCard } from "@/components/ChatbotCard";
+import { CommentsSection } from "@/components/CommentsSection";
 
 interface Chatbot {
   id: string;
@@ -242,6 +243,11 @@ export default function ChatbotDetail() {
             </Link>
           </div>
         )}
+
+        {/* Comments Section */}
+        <div className="mb-8">
+          <CommentsSection chatbotId={chatbot.id} />
+        </div>
 
         {/* Other Bots by Creator */}
         {otherBots.length > 0 && (
