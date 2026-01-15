@@ -19,6 +19,7 @@ import NotFound from "./pages/NotFound";
 import Coins from "./pages/Coins";
 import GenerateImage from "./pages/GenerateImage";
 import Subscribe from "./pages/Subscribe";
+import Help from "./pages/Help";
 
 const queryClient = new QueryClient();
 
@@ -44,6 +45,7 @@ const App = () => (
             <Route path="/coins" element={<Coins />} />
             <Route path="/generate-image" element={<GenerateImage />} />
             <Route path="/subscribe" element={<Subscribe />} />
+            <Route path="/help" element={<Help />} />
             <Route path="*" element={<NotFound />} />
           </Routes>
         </Layout>

@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Home, PlusCircle, Bell, MessageSquare, User, Globe, Coins, ImagePlus } from "lucide-react";
+import { Home, PlusCircle, Bell, MessageSquare, User, Globe, Coins, ImagePlus, HelpCircle } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import { useLocation } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
@@ -25,6 +25,7 @@ const secondaryItems = [
   { title: "Subscribe", url: "/subscribe", icon: Coins },
   { title: "Coins", url: "/coins", icon: Coins },
   { title: "Chat", url: "/chats", icon: MessageSquare },
+  { title: "Help & Guides", url: "/help", icon: HelpCircle },
 ];
 
 export function AppSidebar() {
