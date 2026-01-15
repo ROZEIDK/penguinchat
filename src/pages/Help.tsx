@@ -1,6 +1,6 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { ArrowLeft, MessageSquare, Bot, Sparkles, Image, Lightbulb } from "lucide-react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -8,7 +8,16 @@ import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/
 
 const Help = () => {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const initialTab = searchParams.get("tab") === "creating" ? "creating" : "messaging";
+  const [activeTab, setActiveTab] = useState(initialTab);
 
+  useEffect(() => {
+    const tab = searchParams.get("tab");
+    if (tab === "creating" || tab === "messaging") {
+      setActiveTab(tab);
+    }
+  }, [searchParams]);
   return (
     <div className="min-h-screen bg-background">
       <div className="sticky top-0 z-10 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 border-b border-border">
@@ -21,7 +30,7 @@ const Help = () => {
       </div>
 
       <div className="max-w-4xl mx-auto p-4 pb-24">
-        <Tabs defaultValue="messaging" className="w-full">
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
           <TabsList className="grid w-full grid-cols-2 mb-6">
             <TabsTrigger value="messaging" className="flex items-center gap-2">
               <MessageSquare className="h-4 w-4" />
