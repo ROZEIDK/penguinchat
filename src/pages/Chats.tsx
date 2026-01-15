@@ -5,7 +5,7 @@ import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { formatDistanceToNow } from "date-fns";
-import { Search, Loader2, Archive, ArchiveRestore, Trash2, MoreVertical } from "lucide-react";
+import { Search, Loader2, Archive, ArchiveRestore, Trash2, MoreVertical, HelpCircle } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import {
   DropdownMenu,
@@ -283,9 +283,20 @@ export default function Chats() {
   return (
     <div className="min-h-screen p-6">
       <div className="max-w-4xl mx-auto">
-        <h1 className="text-4xl font-bold mb-6 bg-gradient-primary bg-clip-text text-transparent">
-          Your Chats
-        </h1>
+        <div className="flex items-center justify-between mb-6">
+          <h1 className="text-4xl font-bold bg-gradient-primary bg-clip-text text-transparent">
+            Your Chats
+          </h1>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => navigate("/help?tab=messaging")}
+            className="flex items-center gap-2"
+          >
+            <HelpCircle className="h-4 w-4" />
+            <span className="hidden sm:inline">Chat Tips</span>
+          </Button>
+        </div>
 
         {/* Search Bar */}
         <div className="relative mb-6">

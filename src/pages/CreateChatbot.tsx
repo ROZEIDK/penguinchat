@@ -8,7 +8,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
 import { useToast } from "@/hooks/use-toast";
 import { useCoins } from "@/hooks/useCoins";
-import { Upload, Loader2, X, Eye, EyeOff, MessageCircle } from "lucide-react";
+import { Upload, Loader2, X, Eye, EyeOff, MessageCircle, HelpCircle } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import {
   Select,
@@ -162,19 +162,31 @@ export default function CreateChatbot() {
   return (
     <div className="min-h-screen p-6">
       <div className="max-w-3xl mx-auto">
-        <div className="flex items-center justify-between mb-8">
+        <div className="flex items-center justify-between mb-8 flex-wrap gap-3">
           <h1 className="text-4xl font-bold bg-gradient-primary bg-clip-text text-transparent">
             Create Character
           </h1>
-          <Button
-            type="button"
-            variant="outline"
-            onClick={() => setShowPrivate(!showPrivate)}
-            className="flex items-center gap-2"
-          >
-            {showPrivate ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-            {showPrivate ? "Hide" : "Show"} Private Characters
-          </Button>
+          <div className="flex items-center gap-2">
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => navigate("/help?tab=creating")}
+              className="flex items-center gap-2"
+            >
+              <HelpCircle className="h-4 w-4" />
+              <span className="hidden sm:inline">Creation Guide</span>
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setShowPrivate(!showPrivate)}
+              className="flex items-center gap-2"
+            >
+              {showPrivate ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+              {showPrivate ? "Hide" : "Show"} Private Characters
+            </Button>
+          </div>
         </div>
 
         {showPrivate && (
