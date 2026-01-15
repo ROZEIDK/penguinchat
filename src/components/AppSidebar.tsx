@@ -77,7 +77,7 @@ export function AppSidebar() {
             <span className="text-lg">🐧</span>
           </div>
           {!collapsed && (
-            <span className="font-bold text-lg text-foreground">PolyBuzz</span>
+            <span className="font-bold text-lg text-foreground">PenguinChat</span>
           )}
         </div>
         
