@@ -457,6 +457,39 @@ export type Database = {
         }
         Relationships: []
       }
+      user_streaks: {
+        Row: {
+          created_at: string
+          current_streak: number
+          id: string
+          last_completed_date: string | null
+          longest_streak: number
+          updated_at: string
+          user_id: string
+          weekly_bonus_last_claimed: string | null
+        }
+        Insert: {
+          created_at?: string
+          current_streak?: number
+          id?: string
+          last_completed_date?: string | null
+          longest_streak?: number
+          updated_at?: string
+          user_id: string
+          weekly_bonus_last_claimed?: string | null
+        }
+        Update: {
+          created_at?: string
+          current_streak?: number
+          id?: string
+          last_completed_date?: string | null
+          longest_streak?: number
+          updated_at?: string
+          user_id?: string
+          weekly_bonus_last_claimed?: string | null
+        }
+        Relationships: []
+      }
       user_task_progress: {
         Row: {
           created_at: string
