@@ -144,6 +144,61 @@ export function useCoins(userId: string | undefined) {
     }
   }, [toast]);
 
+  const autoClaimReward = useCallback(async (
+    taskData: DailyTask, 
+    progressId: string,
+    currentUserId: string
+  ) => {
+    try {
+      // Mark as claimed
+      await supabase
+        .from("user_task_progress")
+        .update({ is_claimed: true })
+        .eq("id", progressId);
+
+      // Get current balance from database to avoid race conditions
+      const { data: coinsData } = await supabase
+        .from("user_coins")
+        .select("balance, total_earned")
+        .eq("user_id", currentUserId)
+        .single();
+
+      const currentBalance = coinsData?.balance || 0;
+      const totalEarned = coinsData?.total_earned || 0;
+
+      // Update balance
+      await supabase
+        .from("user_coins")
+        .update({ 
+          balance: currentBalance + taskData.reward_coins,
+          total_earned: totalEarned + taskData.reward_coins
+        })
+        .eq("user_id", currentUserId);
+
+      // Log transaction
+      await supabase.from("coin_transactions").insert({
+        user_id: currentUserId,
+        amount: taskData.reward_coins,
+        transaction_type: "daily_task",
+        description: `Completed: ${taskData.name}`,
+      });
+
+      setBalance((prev) => prev + taskData.reward_coins);
+      
+      setTaskProgress((prev) => ({
+        ...prev,
+        [taskData.id]: { ...prev[taskData.id], is_claimed: true },
+      }));
+
+      toast({
+        title: `🎉 +${taskData.reward_coins} Coins!`,
+        description: `Task completed: ${taskData.name}`,
+      });
+    } catch (error) {
+      console.error("Error auto-claiming reward:", error);
+    }
+  }, [toast]);
+
   const updateTaskProgress = useCallback(async (taskType: string, increment: number = 1) => {
     const currentUserId = userIdRef.current;
     if (!currentUserId) return;
@@ -177,6 +232,7 @@ export function useCoins(userId: string | undefined) {
 
       const newCount = (existingProgress?.current_count || 0) + increment;
       const isCompleted = newCount >= taskData.required_count;
+      const wasAlreadyCompleted = existingProgress?.is_completed || false;
 
       if (existingProgress) {
         await supabase
@@ -195,6 +251,11 @@ export function useCoins(userId: string | undefined) {
             is_claimed: existingProgress.is_claimed,
           },
         }));
+
+        // Auto-claim if just completed
+        if (isCompleted && !wasAlreadyCompleted) {
+          await autoClaimReward(taskData, existingProgress.id, currentUserId);
+        }
       } else {
         const { data: newProgress } = await supabase.from("user_task_progress").insert({
           user_id: currentUserId,
@@ -215,12 +276,17 @@ export function useCoins(userId: string | undefined) {
               is_claimed: false,
             },
           }));
+
+          // Auto-claim if completed on first progress
+          if (isCompleted) {
+            await autoClaimReward(taskData, newProgress.id, currentUserId);
+          }
         }
       }
     } catch (error) {
       console.error("Error updating task progress:", error);
     }
-  }, []);
+  }, [autoClaimReward]);
 
   const claimTaskReward = async (taskId: string) => {
     if (!userId) return;
