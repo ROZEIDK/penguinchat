@@ -19,10 +19,25 @@ export interface TaskProgress {
   is_claimed: boolean;
 }
 
+export interface UserStreak {
+  current_streak: number;
+  longest_streak: number;
+  last_completed_date: string | null;
+  weekly_bonus_last_claimed: string | null;
+}
+
+const WEEKLY_BONUS_COINS = 100;
+
 export function useCoins(userId: string | undefined) {
   const [balance, setBalance] = useState(0);
   const [tasks, setTasks] = useState<DailyTask[]>([]);
   const [taskProgress, setTaskProgress] = useState<Record<string, TaskProgress>>({});
+  const [streak, setStreak] = useState<UserStreak>({ 
+    current_streak: 0, 
+    longest_streak: 0, 
+    last_completed_date: null,
+    weekly_bonus_last_claimed: null 
+  });
   const [loading, setLoading] = useState(true);
   const { toast } = useToast();
   
@@ -100,6 +115,31 @@ export function useCoins(userId: string | undefined) {
       });
 
       setTaskProgress(progressMap);
+
+      // Fetch or create streak data
+      let { data: streakData } = await supabase
+        .from("user_streaks")
+        .select("*")
+        .eq("user_id", userId)
+        .single();
+
+      if (!streakData) {
+        const { data: newStreak } = await supabase
+          .from("user_streaks")
+          .insert({ user_id: userId })
+          .select()
+          .single();
+        streakData = newStreak;
+      }
+
+      if (streakData) {
+        setStreak({
+          current_streak: streakData.current_streak,
+          longest_streak: streakData.longest_streak,
+          last_completed_date: streakData.last_completed_date,
+          weekly_bonus_last_claimed: streakData.weekly_bonus_last_claimed,
+        });
+      }
     } catch (error) {
       console.error("Error fetching coins data:", error);
     } finally {
@@ -141,6 +181,132 @@ export function useCoins(userId: string | undefined) {
       });
     } catch (error) {
       console.error("Error adding coins:", error);
+    }
+  }, [toast]);
+
+  const checkAndUpdateStreak = useCallback(async (currentUserId: string) => {
+    try {
+      const today = new Date().toISOString().split("T")[0];
+      
+      // Fetch all active tasks
+      const { data: allTasks } = await supabase
+        .from("daily_tasks")
+        .select("id")
+        .eq("is_active", true);
+
+      if (!allTasks || allTasks.length === 0) return;
+
+      // Fetch today's progress for all tasks
+      const { data: todayProgress } = await supabase
+        .from("user_task_progress")
+        .select("*")
+        .eq("user_id", currentUserId)
+        .eq("reset_date", today);
+
+      // Check if ALL tasks are completed AND claimed
+      const completedTaskIds = new Set(
+        todayProgress?.filter(p => p.is_completed && p.is_claimed).map(p => p.task_id) || []
+      );
+      const allTasksCompleted = allTasks.every(t => completedTaskIds.has(t.id));
+
+      if (!allTasksCompleted) return;
+
+      // Fetch current streak
+      const { data: streakData } = await supabase
+        .from("user_streaks")
+        .select("*")
+        .eq("user_id", currentUserId)
+        .single();
+
+      if (!streakData) return;
+
+      // Already updated today
+      if (streakData.last_completed_date === today) return;
+
+      // Calculate new streak
+      const yesterday = new Date();
+      yesterday.setDate(yesterday.getDate() - 1);
+      const yesterdayStr = yesterday.toISOString().split("T")[0];
+
+      let newStreak = 1;
+      if (streakData.last_completed_date === yesterdayStr) {
+        // Consecutive day
+        newStreak = streakData.current_streak + 1;
+      }
+
+      const newLongest = Math.max(newStreak, streakData.longest_streak);
+
+      // Update streak
+      await supabase
+        .from("user_streaks")
+        .update({
+          current_streak: newStreak,
+          longest_streak: newLongest,
+          last_completed_date: today,
+        })
+        .eq("user_id", currentUserId);
+
+      setStreak(prev => ({
+        ...prev,
+        current_streak: newStreak,
+        longest_streak: newLongest,
+        last_completed_date: today,
+      }));
+
+      toast({
+        title: `🔥 ${newStreak} Day Streak!`,
+        description: "You completed all daily tasks!",
+      });
+
+      // Check for weekly bonus (every 7 days)
+      if (newStreak > 0 && newStreak % 7 === 0) {
+        // Check if we haven't already claimed this week's bonus
+        const weekStart = new Date();
+        weekStart.setDate(weekStart.getDate() - 6);
+        const weekStartStr = weekStart.toISOString().split("T")[0];
+        
+        if (!streakData.weekly_bonus_last_claimed || streakData.weekly_bonus_last_claimed < weekStartStr) {
+          // Award weekly bonus
+          const { data: coinsData } = await supabase
+            .from("user_coins")
+            .select("balance, total_earned")
+            .eq("user_id", currentUserId)
+            .single();
+
+          const currentBalance = coinsData?.balance || 0;
+          const totalEarned = coinsData?.total_earned || 0;
+
+          await supabase
+            .from("user_coins")
+            .update({
+              balance: currentBalance + WEEKLY_BONUS_COINS,
+              total_earned: totalEarned + WEEKLY_BONUS_COINS,
+            })
+            .eq("user_id", currentUserId);
+
+          await supabase.from("coin_transactions").insert({
+            user_id: currentUserId,
+            amount: WEEKLY_BONUS_COINS,
+            transaction_type: "weekly_bonus",
+            description: `7-day streak bonus!`,
+          });
+
+          await supabase
+            .from("user_streaks")
+            .update({ weekly_bonus_last_claimed: today })
+            .eq("user_id", currentUserId);
+
+          setBalance(prev => prev + WEEKLY_BONUS_COINS);
+          setStreak(prev => ({ ...prev, weekly_bonus_last_claimed: today }));
+
+          toast({
+            title: `🎊 +${WEEKLY_BONUS_COINS} Weekly Bonus!`,
+            description: `Amazing! You've maintained a ${newStreak}-day streak!`,
+          });
+        }
+      }
+    } catch (error) {
+      console.error("Error checking streak:", error);
     }
   }, [toast]);
 
@@ -194,10 +360,13 @@ export function useCoins(userId: string | undefined) {
         title: `🎉 +${taskData.reward_coins} Coins!`,
         description: `Task completed: ${taskData.name}`,
       });
+
+      // Check if all tasks are now complete for streak
+      await checkAndUpdateStreak(currentUserId);
     } catch (error) {
       console.error("Error auto-claiming reward:", error);
     }
-  }, [toast]);
+  }, [toast, checkAndUpdateStreak]);
 
   const updateTaskProgress = useCallback(async (taskType: string, increment: number = 1) => {
     const currentUserId = userIdRef.current;
@@ -317,6 +486,7 @@ export function useCoins(userId: string | undefined) {
     balance,
     tasks,
     taskProgress,
+    streak,
     loading,
     addCoins,
     updateTaskProgress,
