@@ -133,6 +133,9 @@ export default function ChatInterface() {
 
         if (convError) throw convError;
         convData = newConv;
+        
+        // Track unique chat for coins (new conversation with a different chatbot)
+        updateTaskProgress("unique_chats", 1);
 
         // Add intro message
         const { data: introMsg } = await supabase
@@ -200,7 +203,6 @@ export default function ChatInterface() {
 
       // Track chat progress for coins
       updateTaskProgress("chat_count", 1);
-      updateTaskProgress("unique_chats", 0); // Will be handled separately based on unique chatbot
 
       // Call AI
       const { data, error } = await supabase.functions.invoke("chat", {

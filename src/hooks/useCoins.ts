@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 
@@ -25,6 +25,29 @@ export function useCoins(userId: string | undefined) {
   const [taskProgress, setTaskProgress] = useState<Record<string, TaskProgress>>({});
   const [loading, setLoading] = useState(true);
   const { toast } = useToast();
+  
+  // Refs to track latest state for callbacks
+  const tasksRef = useRef<DailyTask[]>([]);
+  const taskProgressRef = useRef<Record<string, TaskProgress>>({});
+  const balanceRef = useRef(0);
+  const userIdRef = useRef<string | undefined>(userId);
+  
+  // Keep refs in sync
+  useEffect(() => {
+    tasksRef.current = tasks;
+  }, [tasks]);
+  
+  useEffect(() => {
+    taskProgressRef.current = taskProgress;
+  }, [taskProgress]);
+  
+  useEffect(() => {
+    balanceRef.current = balance;
+  }, [balance]);
+  
+  useEffect(() => {
+    userIdRef.current = userId;
+  }, [userId]);
 
   useEffect(() => {
     if (userId) {
@@ -84,24 +107,27 @@ export function useCoins(userId: string | undefined) {
     }
   };
 
-  const addCoins = async (amount: number, type: string, description: string) => {
-    if (!userId) return;
+  const addCoins = useCallback(async (amount: number, type: string, description: string) => {
+    const currentUserId = userIdRef.current;
+    const currentBalance = balanceRef.current;
+    
+    if (!currentUserId) return;
 
     try {
       // Update balance
       const { error: updateError } = await supabase
         .from("user_coins")
         .update({ 
-          balance: balance + amount,
-          total_earned: balance + amount
+          balance: currentBalance + amount,
+          total_earned: currentBalance + amount
         })
-        .eq("user_id", userId);
+        .eq("user_id", currentUserId);
 
       if (updateError) throw updateError;
 
       // Log transaction
       await supabase.from("coin_transactions").insert({
-        user_id: userId,
+        user_id: currentUserId,
         amount,
         transaction_type: type,
         description,
@@ -116,32 +142,63 @@ export function useCoins(userId: string | undefined) {
     } catch (error) {
       console.error("Error adding coins:", error);
     }
-  };
+  }, [toast]);
 
-  const updateTaskProgress = async (taskType: string, increment: number = 1) => {
-    if (!userId) return;
-
-    const task = tasks.find((t) => t.task_type === taskType);
-    if (!task) return;
-
-    const today = new Date().toISOString().split("T")[0];
-    const progress = taskProgress[task.id];
-
-    if (progress?.is_claimed) return; // Already claimed today
+  const updateTaskProgress = useCallback(async (taskType: string, increment: number = 1) => {
+    const currentUserId = userIdRef.current;
+    if (!currentUserId) return;
 
     try {
-      const newCount = (progress?.current_count || 0) + increment;
-      const isCompleted = newCount >= task.required_count;
+      // Fetch task directly from database to avoid timing issues
+      const { data: taskData } = await supabase
+        .from("daily_tasks")
+        .select("*")
+        .eq("task_type", taskType)
+        .eq("is_active", true)
+        .single();
 
-      if (progress) {
+      if (!taskData) {
+        console.log(`No active task found for type: ${taskType}`);
+        return;
+      }
+
+      const today = new Date().toISOString().split("T")[0];
+      
+      // Fetch current progress from database
+      const { data: existingProgress } = await supabase
+        .from("user_task_progress")
+        .select("*")
+        .eq("user_id", currentUserId)
+        .eq("task_id", taskData.id)
+        .eq("reset_date", today)
+        .single();
+
+      if (existingProgress?.is_claimed) return; // Already claimed today
+
+      const newCount = (existingProgress?.current_count || 0) + increment;
+      const isCompleted = newCount >= taskData.required_count;
+
+      if (existingProgress) {
         await supabase
           .from("user_task_progress")
           .update({ current_count: newCount, is_completed: isCompleted })
-          .eq("id", progress.id);
+          .eq("id", existingProgress.id);
+          
+        setTaskProgress((prev) => ({
+          ...prev,
+          [taskData.id]: {
+            ...prev[taskData.id],
+            id: existingProgress.id,
+            task_id: taskData.id,
+            current_count: newCount,
+            is_completed: isCompleted,
+            is_claimed: existingProgress.is_claimed,
+          },
+        }));
       } else {
         const { data: newProgress } = await supabase.from("user_task_progress").insert({
-          user_id: userId,
-          task_id: task.id,
+          user_id: currentUserId,
+          task_id: taskData.id,
           current_count: newCount,
           is_completed: isCompleted,
           reset_date: today,
@@ -150,33 +207,20 @@ export function useCoins(userId: string | undefined) {
         if (newProgress) {
           setTaskProgress((prev) => ({
             ...prev,
-            [task.id]: {
+            [taskData.id]: {
               id: newProgress.id,
-              task_id: task.id,
+              task_id: taskData.id,
               current_count: newCount,
               is_completed: isCompleted,
               is_claimed: false,
             },
           }));
-          return;
         }
       }
-
-      setTaskProgress((prev) => ({
-        ...prev,
-        [task.id]: {
-          ...prev[task.id],
-          id: progress?.id || "",
-          task_id: task.id,
-          current_count: newCount,
-          is_completed: isCompleted,
-          is_claimed: progress?.is_claimed || false,
-        },
-      }));
     } catch (error) {
       console.error("Error updating task progress:", error);
     }
-  };
+  }, []);
 
   const claimTaskReward = async (taskId: string) => {
     if (!userId) return;
