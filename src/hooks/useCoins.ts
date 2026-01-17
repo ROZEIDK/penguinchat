@@ -373,82 +373,84 @@ export function useCoins(userId: string | undefined) {
     if (!currentUserId) return;
 
     try {
-      // Fetch task directly from database to avoid timing issues
-      const { data: taskData } = await supabase
+      // Fetch ALL tasks with this task type (not just one!)
+      const { data: tasksData } = await supabase
         .from("daily_tasks")
         .select("*")
         .eq("task_type", taskType)
-        .eq("is_active", true)
-        .single();
+        .eq("is_active", true);
 
-      if (!taskData) {
+      if (!tasksData || tasksData.length === 0) {
         console.log(`No active task found for type: ${taskType}`);
         return;
       }
 
       const today = new Date().toISOString().split("T")[0];
-      
-      // Fetch current progress from database
-      const { data: existingProgress } = await supabase
-        .from("user_task_progress")
-        .select("*")
-        .eq("user_id", currentUserId)
-        .eq("task_id", taskData.id)
-        .eq("reset_date", today)
-        .single();
 
-      if (existingProgress?.is_claimed) return; // Already claimed today
-
-      const newCount = (existingProgress?.current_count || 0) + increment;
-      const isCompleted = newCount >= taskData.required_count;
-      const wasAlreadyCompleted = existingProgress?.is_completed || false;
-
-      if (existingProgress) {
-        await supabase
+      // Update progress for ALL tasks with this task type
+      for (const taskData of tasksData) {
+        // Fetch current progress from database for this specific task
+        const { data: existingProgress } = await supabase
           .from("user_task_progress")
-          .update({ current_count: newCount, is_completed: isCompleted })
-          .eq("id", existingProgress.id);
-          
-        setTaskProgress((prev) => ({
-          ...prev,
-          [taskData.id]: {
-            ...prev[taskData.id],
-            id: existingProgress.id,
-            task_id: taskData.id,
-            current_count: newCount,
-            is_completed: isCompleted,
-            is_claimed: existingProgress.is_claimed,
-          },
-        }));
+          .select("*")
+          .eq("user_id", currentUserId)
+          .eq("task_id", taskData.id)
+          .eq("reset_date", today)
+          .single();
 
-        // Auto-claim if just completed
-        if (isCompleted && !wasAlreadyCompleted) {
-          await autoClaimReward(taskData, existingProgress.id, currentUserId);
-        }
-      } else {
-        const { data: newProgress } = await supabase.from("user_task_progress").insert({
-          user_id: currentUserId,
-          task_id: taskData.id,
-          current_count: newCount,
-          is_completed: isCompleted,
-          reset_date: today,
-        }).select().single();
+        if (existingProgress?.is_claimed) continue; // Already claimed today, skip to next task
 
-        if (newProgress) {
+        const newCount = (existingProgress?.current_count || 0) + increment;
+        const isCompleted = newCount >= taskData.required_count;
+        const wasAlreadyCompleted = existingProgress?.is_completed || false;
+
+        if (existingProgress) {
+          await supabase
+            .from("user_task_progress")
+            .update({ current_count: newCount, is_completed: isCompleted })
+            .eq("id", existingProgress.id);
+            
           setTaskProgress((prev) => ({
             ...prev,
             [taskData.id]: {
-              id: newProgress.id,
+              ...prev[taskData.id],
+              id: existingProgress.id,
               task_id: taskData.id,
               current_count: newCount,
               is_completed: isCompleted,
-              is_claimed: false,
+              is_claimed: existingProgress.is_claimed,
             },
           }));
 
-          // Auto-claim if completed on first progress
-          if (isCompleted) {
-            await autoClaimReward(taskData, newProgress.id, currentUserId);
+          // Auto-claim if just completed
+          if (isCompleted && !wasAlreadyCompleted) {
+            await autoClaimReward(taskData, existingProgress.id, currentUserId);
+          }
+        } else {
+          const { data: newProgress } = await supabase.from("user_task_progress").insert({
+            user_id: currentUserId,
+            task_id: taskData.id,
+            current_count: newCount,
+            is_completed: isCompleted,
+            reset_date: today,
+          }).select().single();
+
+          if (newProgress) {
+            setTaskProgress((prev) => ({
+              ...prev,
+              [taskData.id]: {
+                id: newProgress.id,
+                task_id: taskData.id,
+                current_count: newCount,
+                is_completed: isCompleted,
+                is_claimed: false,
+              },
+            }));
+
+            // Auto-claim if completed on first progress
+            if (isCompleted) {
+              await autoClaimReward(taskData, newProgress.id, currentUserId);
+            }
           }
         }
       }
