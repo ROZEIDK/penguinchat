@@ -160,12 +160,21 @@ export type Database = {
           description: string
           dialogue_style: string | null
           gender: string | null
+          has_second_character: boolean | null
           id: string
           image_generation_model: string | null
           intro_message: string
           is_mature: boolean | null
           is_public: boolean | null
+          linked_chatbot_id: string | null
           name: string
+          second_character_avatar_url: string | null
+          second_character_backstory: string | null
+          second_character_description: string | null
+          second_character_dialogue_style: string | null
+          second_character_gender: string | null
+          second_character_name: string | null
+          second_character_type: string | null
           tags: string[] | null
           total_views: number | null
           updated_at: string
@@ -178,12 +187,21 @@ export type Database = {
           description: string
           dialogue_style?: string | null
           gender?: string | null
+          has_second_character?: boolean | null
           id?: string
           image_generation_model?: string | null
           intro_message: string
           is_mature?: boolean | null
           is_public?: boolean | null
+          linked_chatbot_id?: string | null
           name: string
+          second_character_avatar_url?: string | null
+          second_character_backstory?: string | null
+          second_character_description?: string | null
+          second_character_dialogue_style?: string | null
+          second_character_gender?: string | null
+          second_character_name?: string | null
+          second_character_type?: string | null
           tags?: string[] | null
           total_views?: number | null
           updated_at?: string
@@ -196,17 +214,34 @@ export type Database = {
           description?: string
           dialogue_style?: string | null
           gender?: string | null
+          has_second_character?: boolean | null
           id?: string
           image_generation_model?: string | null
           intro_message?: string
           is_mature?: boolean | null
           is_public?: boolean | null
+          linked_chatbot_id?: string | null
           name?: string
+          second_character_avatar_url?: string | null
+          second_character_backstory?: string | null
+          second_character_description?: string | null
+          second_character_dialogue_style?: string | null
+          second_character_gender?: string | null
+          second_character_name?: string | null
+          second_character_type?: string | null
           tags?: string[] | null
           total_views?: number | null
           updated_at?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "chatbots_linked_chatbot_id_fkey"
+            columns: ["linked_chatbot_id"]
+            isOneToOne: false
+            referencedRelation: "chatbots"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       coin_transactions: {
         Row: {

@@ -6,6 +6,93 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
+// Helper function to build system prompt for a character
+function buildSystemPrompt(character: any, isSecondCharacter = false): string {
+  const cleanName = character.name.replace(/\s*\([^)]*\)\s*/g, '').trim();
+  const nameParts = cleanName.split(/\s+/);
+  const nameVariations = [cleanName, ...nameParts].filter(n => n.length > 1);
+  
+  let systemPrompt = `You are ${cleanName}. ${character.description}
+
+IDENTITY RULES (CRITICAL):
+- Your name is "${cleanName}". Any mentions of "${cleanName}" or variations like "${nameVariations.join('", "')}" in the backstory, first message, or user messages refer to YOU - not a different character.
+- If the user or backstory mentions your name or a shortened version of it, they are talking about YOU.
+- You are the ONLY character with this name. Do not create or reference other characters with similar names.
+- The backstory describes YOUR history with the user. Events in the backstory happened to YOU.
+
+RESPONSE FORMAT RULES:
+1. Start with an action/emotion wrapped in asterisks (*) - ONE sentence describing your movement, expression, or emotion
+2. Follow with 2-3 sentences of dialogue or narration in plain text
+3. Keep responses SHORT and engaging
+
+Example format:
+*She tilts her head curiously, a soft smile playing on her lips.*
+Oh, you're finally here! I've been waiting for you. What took you so long?
+
+CHARACTER DETAILS:`;
+  
+  if (character.backstory) {
+    systemPrompt += `\nBackstory (this is YOUR history, any name references are about YOU): ${character.backstory}`;
+  }
+  
+  if (character.dialogue_style) {
+    systemPrompt += `\nDialogue Style: ${character.dialogue_style}`;
+  }
+  
+  if (character.gender) {
+    systemPrompt += `\nGender: ${character.gender}`;
+  }
+
+  if (character.tags && character.tags.length > 0) {
+    systemPrompt += `\nPersonality Tags: ${character.tags.join(', ')}`;
+  }
+
+  systemPrompt += `
+
+Stay in character as ${cleanName}. Use the roleplay format with *actions* and short dialogue. Be expressive but concise.`;
+
+  return systemPrompt;
+}
+
+// Helper function to get AI response for a single character
+async function getCharacterResponse(
+  character: any,
+  messages: any[],
+  LOVABLE_API_KEY: string,
+  isSecondCharacter = false
+): Promise<string> {
+  const systemPrompt = buildSystemPrompt(character, isSecondCharacter);
+  
+  const conversationHistory = messages.map((msg: any) => ({
+    role: msg.role,
+    content: msg.content,
+  }));
+
+  const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${LOVABLE_API_KEY}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      model: 'google/gemini-2.5-flash',
+      messages: [
+        { role: 'system', content: systemPrompt },
+        ...conversationHistory,
+      ],
+    }),
+  });
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    console.error('AI gateway error for character:', character.name, response.status, errorText);
+    throw new Error(`AI error for ${character.name}: ${response.status}`);
+  }
+
+  const data = await response.json();
+  return data.choices[0].message.content;
+}
+
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
@@ -247,97 +334,96 @@ serve(async (req) => {
       );
     }
 
-    // Regular chat response - Roleplay format with emotions in asterisks
-    // Extract clean name (remove parenthetical notes like "(my OC)" or "(test)")
-    const cleanName = chatbot.name.replace(/\s*\([^)]*\)\s*/g, '').trim();
-    // Create name variations for recognition (full name, first word, common shortenings)
-    const nameParts = cleanName.split(/\s+/);
-    const nameVariations = [cleanName, ...nameParts].filter(n => n.length > 1);
-    
-    let systemPrompt = `You are ${cleanName}. ${chatbot.description}
+    // Check if this chatbot has a second character
+    const hasSecondCharacter = chatbot.has_second_character === true;
+    let secondCharacter = null;
 
-IDENTITY RULES (CRITICAL):
-- Your name is "${cleanName}". Any mentions of "${cleanName}" or variations like "${nameVariations.join('", "')}" in the backstory, first message, or user messages refer to YOU - not a different character.
-- If the user or backstory mentions your name or a shortened version of it, they are talking about YOU.
-- You are the ONLY character with this name. Do not create or reference other characters with similar names.
-- The backstory describes YOUR history with the user. Events in the backstory happened to YOU.
-
-RESPONSE FORMAT RULES:
-1. Start with an action/emotion wrapped in asterisks (*) - ONE sentence describing your movement, expression, or emotion
-2. Follow with 2-3 sentences of dialogue or narration in plain text
-3. Keep responses SHORT and engaging
-
-Example format:
-*She tilts her head curiously, a soft smile playing on her lips.*
-Oh, you're finally here! I've been waiting for you. What took you so long?
-
-CHARACTER DETAILS:`;
-    
-    if (chatbot.backstory) {
-      systemPrompt += `\nBackstory (this is YOUR history, any name references are about YOU): ${chatbot.backstory}`;
+    if (hasSecondCharacter) {
+      console.log('Dual character mode detected');
+      
+      if (chatbot.second_character_type === 'linked' && chatbot.linked_chatbot_id) {
+        // Fetch the linked chatbot's details
+        const supabaseUrl = Deno.env.get('SUPABASE_URL');
+        const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
+        
+        if (supabaseUrl && supabaseKey) {
+          const supabase = createClient(supabaseUrl, supabaseKey);
+          const { data: linkedBot, error } = await supabase
+            .from('chatbots')
+            .select('*')
+            .eq('id', chatbot.linked_chatbot_id)
+            .single();
+          
+          if (!error && linkedBot) {
+            secondCharacter = {
+              name: linkedBot.name,
+              description: linkedBot.description,
+              backstory: linkedBot.backstory,
+              dialogue_style: linkedBot.dialogue_style,
+              gender: linkedBot.gender,
+              tags: linkedBot.tags,
+              avatar_url: linkedBot.avatar_url,
+            };
+            console.log('Loaded linked chatbot:', linkedBot.name);
+          } else {
+            console.error('Failed to load linked chatbot:', error);
+          }
+        }
+      } else if (chatbot.second_character_type === 'inline') {
+        // Use inline second character data
+        secondCharacter = {
+          name: chatbot.second_character_name,
+          description: chatbot.second_character_description,
+          backstory: chatbot.second_character_backstory,
+          dialogue_style: chatbot.second_character_dialogue_style,
+          gender: chatbot.second_character_gender,
+          tags: [],
+          avatar_url: chatbot.second_character_avatar_url,
+        };
+        console.log('Using inline second character:', secondCharacter.name);
+      }
     }
-    
-    if (chatbot.dialogue_style) {
-      systemPrompt += `\nDialogue Style: ${chatbot.dialogue_style}`;
+
+    // If we have a second character, get both responses
+    if (secondCharacter) {
+      console.log('Getting dual character responses');
+      
+      try {
+        // Get responses from both characters in parallel
+        const [response1, response2] = await Promise.all([
+          getCharacterResponse(chatbot, messages, LOVABLE_API_KEY, false),
+          getCharacterResponse(secondCharacter, messages, LOVABLE_API_KEY, true),
+        ]);
+
+        // Combine responses with character names as headers
+        const char1Name = chatbot.name.replace(/\s*\([^)]*\)\s*/g, '').trim();
+        const char2Name = secondCharacter.name.replace(/\s*\([^)]*\)\s*/g, '').trim();
+        
+        const combinedResponse = `**${char1Name}:**\n${response1}\n\n---\n\n**${char2Name}:**\n${response2}`;
+
+        console.log('Dual character responses generated successfully');
+
+        return new Response(
+          JSON.stringify({ 
+            response: combinedResponse,
+            isDualCharacter: true,
+            characters: [
+              { name: char1Name, avatar_url: chatbot.avatar_url },
+              { name: char2Name, avatar_url: secondCharacter.avatar_url }
+            ]
+          }),
+          { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      } catch (error) {
+        console.error('Error in dual character response:', error);
+        // Fall back to single character response
+      }
     }
-    
-    if (chatbot.gender) {
-      systemPrompt += `\nGender: ${chatbot.gender}`;
-    }
 
-    if (chatbot.tags && chatbot.tags.length > 0) {
-      systemPrompt += `\nPersonality Tags: ${chatbot.tags.join(', ')}`;
-    }
-
-    systemPrompt += `
-
-Stay in character as ${cleanName}. Use the roleplay format with *actions* and short dialogue. Be expressive but concise.`;
-
-    const conversationHistory = messages.map((msg: any) => ({
-      role: msg.role,
-      content: msg.content,
-    }));
-
+    // Regular single character chat response
     console.log('Calling Lovable AI with chatbot:', chatbot.name);
 
-    const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${LOVABLE_API_KEY}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        model: 'google/gemini-2.5-flash',
-        messages: [
-          { role: 'system', content: systemPrompt },
-          ...conversationHistory,
-        ],
-      }),
-    });
-
-    if (!response.ok) {
-      if (response.status === 429) {
-        return new Response(
-          JSON.stringify({ error: 'Rate limits exceeded. Please try again later.' }),
-          { status: 429, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-        );
-      }
-      if (response.status === 402) {
-        return new Response(
-          JSON.stringify({ error: 'Payment required. Please add credits to your Lovable AI workspace.' }),
-          { status: 402, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-        );
-      }
-      const errorText = await response.text();
-      console.error('AI gateway error:', response.status, errorText);
-      return new Response(
-        JSON.stringify({ error: 'AI gateway error' }),
-        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
-    }
-
-    const data = await response.json();
-    const aiResponse = data.choices[0].message.content;
+    const aiResponse = await getCharacterResponse(chatbot, messages, LOVABLE_API_KEY, false);
 
     console.log('AI response generated successfully');
 
