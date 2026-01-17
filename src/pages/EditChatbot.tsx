@@ -16,6 +16,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import SecondCharacterForm from "@/components/SecondCharacterForm";
 
 export default function EditChatbot() {
   const { chatbotId } = useParams();
@@ -37,6 +38,18 @@ export default function EditChatbot() {
     dialogue_style: "",
     avatar_url: "",
     image_generation_model: "gemini",
+  });
+
+  const [secondCharacterData, setSecondCharacterData] = useState({
+    has_second_character: false,
+    second_character_type: null as "inline" | "linked" | null,
+    second_character_name: "",
+    second_character_description: "",
+    second_character_backstory: "",
+    second_character_dialogue_style: "",
+    second_character_avatar_url: "",
+    second_character_gender: "",
+    linked_chatbot_id: "",
   });
 
   const [tags, setTags] = useState<string[]>([]);
@@ -86,6 +99,19 @@ export default function EditChatbot() {
         avatar_url: data.avatar_url || "",
         image_generation_model: data.image_generation_model || "gemini",
       });
+
+      setSecondCharacterData({
+        has_second_character: data.has_second_character || false,
+        second_character_type: data.second_character_type as "inline" | "linked" | null,
+        second_character_name: data.second_character_name || "",
+        second_character_description: data.second_character_description || "",
+        second_character_backstory: data.second_character_backstory || "",
+        second_character_dialogue_style: data.second_character_dialogue_style || "",
+        second_character_avatar_url: data.second_character_avatar_url || "",
+        second_character_gender: data.second_character_gender || "",
+        linked_chatbot_id: data.linked_chatbot_id || "",
+      });
+
       setTags(data.tags || []);
     } catch (error: any) {
       toast({
@@ -148,11 +174,45 @@ export default function EditChatbot() {
     setLoading(true);
 
     try {
+      // Validate second character if enabled
+      if (secondCharacterData.has_second_character) {
+        if (secondCharacterData.second_character_type === "inline") {
+          if (!secondCharacterData.second_character_name || !secondCharacterData.second_character_description) {
+            toast({
+              title: "Missing second character info",
+              description: "Please provide a name and description for the second character.",
+              variant: "destructive",
+            });
+            setLoading(false);
+            return;
+          }
+        } else if (secondCharacterData.second_character_type === "linked") {
+          if (!secondCharacterData.linked_chatbot_id) {
+            toast({
+              title: "No chatbot linked",
+              description: "Please select a chatbot to link as the second character.",
+              variant: "destructive",
+            });
+            setLoading(false);
+            return;
+          }
+        }
+      }
+
       const { error } = await supabase
         .from("chatbots")
         .update({
           ...formData,
           tags,
+          has_second_character: secondCharacterData.has_second_character,
+          second_character_type: secondCharacterData.second_character_type,
+          second_character_name: secondCharacterData.second_character_name || null,
+          second_character_description: secondCharacterData.second_character_description || null,
+          second_character_backstory: secondCharacterData.second_character_backstory || null,
+          second_character_dialogue_style: secondCharacterData.second_character_dialogue_style || null,
+          second_character_avatar_url: secondCharacterData.second_character_avatar_url || null,
+          second_character_gender: secondCharacterData.second_character_gender || null,
+          linked_chatbot_id: secondCharacterData.linked_chatbot_id || null,
         })
         .eq("id", chatbotId);
 
@@ -386,6 +446,16 @@ export default function EditChatbot() {
               />
             </div>
           </div>
+
+          {/* Second Character Section */}
+          {user && (
+            <SecondCharacterForm
+              userId={user.id}
+              data={secondCharacterData}
+              onChange={setSecondCharacterData}
+              excludeChatbotId={chatbotId}
+            />
+          )}
 
           <Button
             type="submit"
