@@ -6,8 +6,10 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
-import { Upload, Loader2, X, Users, Link2, UserPlus } from "lucide-react";
+import { Upload, Loader2, X, Users, Link2, UserPlus, Crown, Lock } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { useSubscription } from "@/hooks/useSubscription";
+import { useNavigate } from "react-router-dom";
 import {
   Select,
   SelectContent,
@@ -46,6 +48,8 @@ export default function SecondCharacterForm({
   const [availableChatbots, setAvailableChatbots] = useState<Tables<"chatbots">[]>([]);
   const [loadingChatbots, setLoadingChatbots] = useState(false);
   const { toast } = useToast();
+  const { isPremium, loading: subLoading } = useSubscription();
+  const navigate = useNavigate();
 
   useEffect(() => {
     if (data.has_second_character && data.second_character_type === "linked") {
@@ -140,11 +144,51 @@ export default function SecondCharacterForm({
     });
   };
 
+  // Show premium locked state if not premium
+  if (!isPremium && !subLoading) {
+    return (
+      <div className="bg-gradient-card rounded-xl p-6 border border-border shadow-card">
+        <div className="flex items-center gap-3 mb-2">
+          <Users className="h-5 w-5 text-primary" />
+          <h3 className="text-lg font-semibold">Dual Character Mode</h3>
+          <span className="flex items-center gap-1 text-xs bg-yellow-500/20 text-yellow-600 px-2 py-0.5 rounded-full">
+            <Crown className="h-3 w-3" />
+            Premium
+          </span>
+        </div>
+        <p className="text-sm text-muted-foreground mb-4">
+          Add a second character that will also respond to the user in conversations.
+          Both characters will reply to each message.
+        </p>
+        <div className="flex items-center justify-between p-4 rounded-lg bg-muted/50 border border-border">
+          <div className="flex items-center gap-3">
+            <Lock className="h-5 w-5 text-muted-foreground" />
+            <span className="text-sm text-muted-foreground">
+              Unlock this feature with Premium
+            </span>
+          </div>
+          <Button 
+            size="sm" 
+            onClick={() => navigate("/subscribe")}
+            className="bg-gradient-to-r from-yellow-500 to-amber-500 text-black hover:opacity-90"
+          >
+            <Crown className="h-4 w-4 mr-1" />
+            Get Premium
+          </Button>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="bg-gradient-card rounded-xl p-6 border border-border shadow-card space-y-4">
       <div className="flex items-center gap-3 mb-2">
         <Users className="h-5 w-5 text-primary" />
         <h3 className="text-lg font-semibold">Dual Character Mode</h3>
+        <span className="flex items-center gap-1 text-xs bg-yellow-500/20 text-yellow-600 px-2 py-0.5 rounded-full">
+          <Crown className="h-3 w-3" />
+          Premium
+        </span>
       </div>
       <p className="text-sm text-muted-foreground mb-4">
         Add a second character that will also respond to the user in conversations.

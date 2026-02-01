@@ -8,7 +8,8 @@ import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
 import { useToast } from "@/hooks/use-toast";
 import { useCoins } from "@/hooks/useCoins";
-import { Upload, Loader2, X, Eye, EyeOff, MessageCircle, HelpCircle } from "lucide-react";
+import { useSubscription } from "@/hooks/useSubscription";
+import { Upload, Loader2, X, Eye, EyeOff, MessageCircle, HelpCircle, Crown, Lock } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import {
   Select,
@@ -30,6 +31,7 @@ export default function CreateChatbot() {
   const navigate = useNavigate();
   const { toast } = useToast();
   const { updateTaskProgress } = useCoins(user?.id);
+  const { isPremium } = useSubscription();
 
   const [formData, setFormData] = useState({
     name: "",
@@ -331,19 +333,37 @@ export default function CreateChatbot() {
 
           <div className="bg-gradient-card rounded-xl p-6 border border-border shadow-card space-y-4">
             <div>
-              <Label htmlFor="image_model">Image Generation Model</Label>
+              <div className="flex items-center gap-2 mb-1">
+                <Label htmlFor="image_model">Image Generation Model</Label>
+                {!isPremium && (
+                  <span className="text-xs text-muted-foreground">(Stable Diffusion requires Premium)</span>
+                )}
+              </div>
               <Select
                 value={formData.image_generation_model}
-                onValueChange={(value) =>
-                  setFormData({ ...formData, image_generation_model: value })
-                }
+                onValueChange={(value) => {
+                  if (value === "stable-diffusion" && !isPremium) {
+                    toast({
+                      title: "Premium Required",
+                      description: "Stable Diffusion is a premium feature. Upgrade to access it!",
+                      variant: "destructive",
+                    });
+                    return;
+                  }
+                  setFormData({ ...formData, image_generation_model: value });
+                }}
               >
                 <SelectTrigger className="mt-1">
                   <SelectValue placeholder="Select model" />
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="gemini">DreamForge (Default)</SelectItem>
-                  <SelectItem value="stable-diffusion">Stable Diffusion</SelectItem>
+                  <SelectItem value="stable-diffusion" disabled={!isPremium}>
+                    <div className="flex items-center gap-2">
+                      Stable Diffusion
+                      {!isPremium && <Crown className="h-3 w-3 text-yellow-500" />}
+                    </div>
+                  </SelectItem>
                   <SelectItem value="gpt-image">GPT Image</SelectItem>
                 </SelectContent>
               </Select>
