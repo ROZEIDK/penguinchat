@@ -1,6 +1,6 @@
 import { useNavigate } from "react-router-dom";
 import { Badge } from "@/components/ui/badge";
-import { Eye, Edit, Trash2 } from "lucide-react";
+import { Eye, Edit, Trash2, Users } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
 interface ChatbotCardProps {
@@ -14,6 +14,7 @@ interface ChatbotCardProps {
     creator_id: string;
     average_rating?: number;
     review_count?: number;
+    has_second_character?: boolean;
   };
   currentUserId?: string;
   onDelete?: (id: string) => void;
@@ -65,9 +66,16 @@ export function ChatbotCard({ chatbot, currentUserId, onDelete }: ChatbotCardPro
         <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent" />
         
         {/* View count badge - positioned like reference */}
-        <div className="absolute bottom-2 left-2 flex items-center gap-1 text-white text-xs md:text-sm bg-black/40 px-1.5 py-0.5 rounded">
-          <Eye className="h-3 w-3 md:h-4 md:w-4" />
-          <span>{formatViews(chatbot.total_views)}</span>
+        <div className="absolute bottom-2 left-2 flex items-center gap-2">
+          <div className="flex items-center gap-1 text-white text-xs md:text-sm bg-black/40 px-1.5 py-0.5 rounded">
+            <Eye className="h-3 w-3 md:h-4 md:w-4" />
+            <span>{formatViews(chatbot.total_views)}</span>
+          </div>
+          {chatbot.has_second_character && (
+            <div className="flex items-center gap-1 text-white text-xs md:text-sm bg-primary/80 px-1.5 py-0.5 rounded" title="Dual Character">
+              <Users className="h-3 w-3 md:h-4 md:w-4" />
+            </div>
+          )}
         </div>
 
         {/* Owner actions */}
