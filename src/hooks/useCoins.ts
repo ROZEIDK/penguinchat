@@ -28,6 +28,16 @@ export interface UserStreak {
 
 const WEEKLY_BONUS_COINS = 100;
 
+// Helper to check if user is premium
+async function checkIsPremium(userId: string): Promise<boolean> {
+  const { data } = await supabase
+    .from("user_subscriptions")
+    .select("is_premium")
+    .eq("user_id", userId)
+    .maybeSingle();
+  return data?.is_premium || false;
+}
+
 export function useCoins(userId: string | undefined) {
   const [balance, setBalance] = useState(0);
   const [tasks, setTasks] = useState<DailyTask[]>([]);
@@ -322,6 +332,11 @@ export function useCoins(userId: string | undefined) {
         .update({ is_claimed: true })
         .eq("id", progressId);
 
+      // Check if user is premium for 2x multiplier
+      const isPremium = await checkIsPremium(currentUserId);
+      const multiplier = isPremium ? 2 : 1;
+      const rewardAmount = taskData.reward_coins * multiplier;
+
       // Get current balance from database to avoid race conditions
       const { data: coinsData } = await supabase
         .from("user_coins")
@@ -336,20 +351,20 @@ export function useCoins(userId: string | undefined) {
       await supabase
         .from("user_coins")
         .update({ 
-          balance: currentBalance + taskData.reward_coins,
-          total_earned: totalEarned + taskData.reward_coins
+          balance: currentBalance + rewardAmount,
+          total_earned: totalEarned + rewardAmount
         })
         .eq("user_id", currentUserId);
 
       // Log transaction
       await supabase.from("coin_transactions").insert({
         user_id: currentUserId,
-        amount: taskData.reward_coins,
+        amount: rewardAmount,
         transaction_type: "daily_task",
-        description: `Completed: ${taskData.name}`,
+        description: `Completed: ${taskData.name}${isPremium ? " (2x Premium)" : ""}`,
       });
 
-      setBalance((prev) => prev + taskData.reward_coins);
+      setBalance((prev) => prev + rewardAmount);
       
       setTaskProgress((prev) => ({
         ...prev,
@@ -357,7 +372,7 @@ export function useCoins(userId: string | undefined) {
       }));
 
       toast({
-        title: `🎉 +${taskData.reward_coins} Coins!`,
+        title: `🎉 +${rewardAmount} Coins!${isPremium ? " (2x)" : ""}`,
         description: `Task completed: ${taskData.name}`,
       });
 
