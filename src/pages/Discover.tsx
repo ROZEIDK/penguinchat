@@ -3,8 +3,9 @@ import { useNavigate, Link } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { Search, LogIn, Star, User as UserIcon, Camera, Coins, Menu, TrendingUp, Eye } from "lucide-react";
+import { Search, LogIn, Star, User as UserIcon, Camera, Coins, Menu, TrendingUp, Eye, BookOpen } from "lucide-react";
 import { ChatbotCard } from "@/components/ChatbotCard";
+import { BookCard } from "@/components/BookCard";
 import { useToast } from "@/hooks/use-toast";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import {
@@ -30,6 +31,19 @@ interface Chatbot {
   gender: string | null;
   average_rating?: number;
   review_count?: number;
+  has_second_character?: boolean;
+}
+
+interface Book {
+  id: string;
+  title: string;
+  description: string | null;
+  cover_url: string | null;
+  total_views: number;
+  creator_id: string;
+  tags: string[];
+  average_rating?: number;
+  review_count?: number;
 }
 
 const genderFilters = [
@@ -41,6 +55,7 @@ const genderFilters = [
 
 const categoryTags = [
   "Recommend",
+  "Books",
   "Anime",
   "Dominant",
   "OC",
@@ -60,8 +75,13 @@ function formatViews(views: number): string {
   return views.toString();
 }
 
+function getBookTags(book: Book): string[] {
+  return book.tags || [];
+}
+
 export default function Discover() {
   const [chatbots, setChatbots] = useState<Chatbot[]>([]);
+  const [books, setBooks] = useState<Book[]>([]);
   const [trendingBots, setTrendingBots] = useState<Chatbot[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
   const [genderFilter, setGenderFilter] = useState("all");
@@ -71,6 +91,7 @@ export default function Discover() {
   const [coinBalance, setCoinBalance] = useState(0);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [chatbotToDelete, setChatbotToDelete] = useState<string | null>(null);
+  const [bookToDelete, setBookToDelete] = useState<string | null>(null);
   const navigate = useNavigate();
   const { toast } = useToast();
 
@@ -94,6 +115,7 @@ export default function Discover() {
     );
 
     fetchChatbots();
+    fetchBooks();
     fetchTrendingBots();
 
     return () => {
@@ -158,6 +180,45 @@ export default function Discover() {
     setChatbots(chatbotsWithRatings);
   };
 
+  const fetchBooks = async () => {
+    const { data: booksData, error } = await supabase
+      .from("books")
+      .select("*")
+      .eq("is_public", true)
+      .order("created_at", { ascending: false });
+
+    if (error || !booksData) return;
+
+    const { data: reviewsData } = await supabase
+      .from("book_reviews")
+      .select("book_id, rating");
+
+    const ratingsByBook: Record<string, { sum: number; count: number }> = {};
+    (reviewsData as any[] || []).forEach((r: any) => {
+      if (!ratingsByBook[r.book_id]) {
+        ratingsByBook[r.book_id] = { sum: 0, count: 0 };
+      }
+      ratingsByBook[r.book_id].sum += r.rating;
+      ratingsByBook[r.book_id].count += 1;
+    });
+
+    const booksWithRatings = (booksData as any[]).map((book: any) => ({
+      id: book.id as string,
+      title: book.title as string,
+      description: book.description as string | null,
+      cover_url: book.cover_url as string | null,
+      total_views: (book.total_views || 0) as number,
+      creator_id: book.creator_id as string,
+      tags: (book.tags || []) as string[],
+      average_rating: ratingsByBook[book.id]
+        ? ratingsByBook[book.id].sum / ratingsByBook[book.id].count
+        : 0,
+      review_count: ratingsByBook[book.id]?.count || 0,
+    })) as Book[];
+
+    setBooks(booksWithRatings);
+  };
+
   const fetchTrendingBots = async () => {
     // Get top 3 chatbots by views (simulating "this week" by just using total_views)
     const { data, error } = await supabase
@@ -172,7 +233,11 @@ export default function Discover() {
     }
   };
 
+  const isBookFilter = categoryFilter === "Books";
+
   const filteredChatbots = chatbots.filter((bot) => {
+    if (isBookFilter) return false; // Don't show chatbots when Books filter is active
+    
     const matchesSearch =
       bot.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
       bot.description.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -196,33 +261,82 @@ export default function Discover() {
     return matchesSearch && matchesMatureFilter && matchesGender && matchesCategory;
   });
 
+  const filteredBooks: Book[] = [];
+  for (const book of books) {
+    if (!isBookFilter && categoryFilter !== "Recommend") continue;
+    
+    const tagsArray: string[] = getBookTags(book);
+    const searchLower = searchQuery.toLowerCase();
+    const categoryLower = categoryFilter.toLowerCase();
+    
+    const matchesSearch =
+      book.title.toLowerCase().includes(searchLower) ||
+      (book.description?.toLowerCase().includes(searchLower) ?? false) ||
+      tagsArray.some((t) => t.toLowerCase().includes(searchLower));
+
+    const matchesCategory =
+      categoryFilter === "Recommend" ||
+      categoryFilter === "Books" ||
+      tagsArray.some((t) => t.toLowerCase() === categoryLower);
+
+    if (matchesSearch && matchesCategory) {
+      filteredBooks.push(book);
+    }
+  }
+
   const handleDeleteRequest = (chatbotId: string) => {
     setChatbotToDelete(chatbotId);
     setDeleteDialogOpen(true);
   };
 
+  const handleBookDeleteRequest = (bookId: string) => {
+    setBookToDelete(bookId);
+    setDeleteDialogOpen(true);
+  };
+
   const handleDeleteConfirm = async () => {
-    if (!chatbotToDelete) return;
+    if (chatbotToDelete) {
+      try {
+        const { error } = await supabase
+          .from("chatbots")
+          .delete()
+          .eq("id", chatbotToDelete);
 
-    try {
-      const { error } = await supabase
-        .from("chatbots")
-        .delete()
-        .eq("id", chatbotToDelete);
+        if (error) throw error;
 
-      if (error) throw error;
+        toast({ title: "Chatbot deleted successfully!" });
+        fetchChatbots();
+      } catch (error: any) {
+        toast({
+          title: "Error",
+          description: error.message,
+          variant: "destructive",
+        });
+      } finally {
+        setDeleteDialogOpen(false);
+        setChatbotToDelete(null);
+      }
+    } else if (bookToDelete) {
+      try {
+        const { error } = await supabase
+          .from("books")
+          .delete()
+          .eq("id", bookToDelete);
 
-      toast({ title: "Chatbot deleted successfully!" });
-      fetchChatbots();
-    } catch (error: any) {
-      toast({
-        title: "Error",
-        description: error.message,
-        variant: "destructive",
-      });
-    } finally {
-      setDeleteDialogOpen(false);
-      setChatbotToDelete(null);
+        if (error) throw error;
+
+        toast({ title: "Book deleted successfully!" });
+        fetchBooks();
+      } catch (error: any) {
+        toast({
+          title: "Error",
+          description: error.message,
+          variant: "destructive",
+        });
+      } finally {
+        setDeleteDialogOpen(false);
+        setBookToDelete(null);
+      }
     }
   };
 
@@ -510,23 +624,31 @@ export default function Discover() {
           </div>
         </div>
 
-        {/* Chatbot Grid */}
-        {filteredChatbots.length === 0 ? (
+        {/* Content Grid */}
+        {filteredChatbots.length === 0 && filteredBooks.length === 0 ? (
           <div className="text-center py-16">
             <p className="text-xl text-muted-foreground">
-              No chatbots found. Create your own!
+              {isBookFilter ? "No books found. Publish your own!" : "No chatbots found. Create your own!"}
             </p>
             {user && (
               <Button
-                onClick={() => navigate("/create")}
+                onClick={() => navigate(isBookFilter ? "/create-book" : "/create")}
                 className="mt-4 bg-primary hover:bg-primary/90"
               >
-                Create Character
+                {isBookFilter ? "Publish Book" : "Create Character"}
               </Button>
             )}
           </div>
         ) : (
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3 md:gap-4">
+            {filteredBooks.map((book) => (
+              <BookCard
+                key={book.id}
+                book={book}
+                currentUserId={user?.id}
+                onDelete={handleBookDeleteRequest}
+              />
+            ))}
             {filteredChatbots.map((bot) => (
               <ChatbotCard
                 key={bot.id}
@@ -543,10 +665,11 @@ export default function Discover() {
       <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Delete Chatbot</AlertDialogTitle>
+            <AlertDialogTitle>{bookToDelete ? "Delete Book" : "Delete Chatbot"}</AlertDialogTitle>
             <AlertDialogDescription>
-              Are you sure you want to delete this chatbot? This action cannot
-              be undone. All conversations with this chatbot will be deleted.
+              {bookToDelete 
+                ? "Are you sure you want to delete this book? This action cannot be undone."
+                : "Are you sure you want to delete this chatbot? This action cannot be undone. All conversations with this chatbot will be deleted."}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>

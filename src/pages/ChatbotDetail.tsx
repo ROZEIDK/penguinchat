@@ -4,7 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Loader2, MessageSquare, Eye, ArrowLeft, Star, User } from "lucide-react";
+import { Loader2, MessageSquare, Eye, ArrowLeft, Star, User, BookOpen } from "lucide-react";
 import { ChatbotCard } from "@/components/ChatbotCard";
 import { CommentsSection } from "@/components/CommentsSection";
 
@@ -29,12 +29,20 @@ interface Creator {
   bio: string | null;
 }
 
+interface LinkedBook {
+  id: string;
+  title: string;
+  description: string | null;
+  cover_url: string | null;
+}
+
 export default function ChatbotDetail() {
   const { chatbotId } = useParams<{ chatbotId: string }>();
   const navigate = useNavigate();
   const [chatbot, setChatbot] = useState<Chatbot | null>(null);
   const [creator, setCreator] = useState<Creator | null>(null);
   const [otherBots, setOtherBots] = useState<Chatbot[]>([]);
+  const [linkedBooks, setLinkedBooks] = useState<LinkedBook[]>([]);
   const [loading, setLoading] = useState(true);
   const [averageRating, setAverageRating] = useState<number>(0);
   const [reviewCount, setReviewCount] = useState<number>(0);
@@ -42,6 +50,7 @@ export default function ChatbotDetail() {
   useEffect(() => {
     if (chatbotId) {
       fetchChatbotDetails();
+      fetchLinkedBooks();
     }
   }, [chatbotId]);
 
@@ -97,6 +106,29 @@ export default function ChatbotDetail() {
       console.error("Error fetching chatbot details:", error);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const fetchLinkedBooks = async () => {
+    try {
+      const { data: links } = await supabase
+        .from("book_chatbot_links")
+        .select("book_id")
+        .eq("chatbot_id", chatbotId);
+
+      if (links && links.length > 0) {
+        const bookIds = links.map((l: any) => l.book_id);
+        const { data: books } = await supabase
+          .from("books")
+          .select("id, title, description, cover_url")
+          .in("id", bookIds);
+        
+        if (books) {
+          setLinkedBooks(books as LinkedBook[]);
+        }
+      }
+    } catch (error) {
+      console.error("Error fetching linked books:", error);
     }
   };
 
@@ -210,6 +242,43 @@ export default function ChatbotDetail() {
                 <p className="text-muted-foreground whitespace-pre-wrap text-sm">
                   {chatbot.backstory}
                 </p>
+              </div>
+            )}
+
+            {/* Linked Books Section */}
+            {linkedBooks.length > 0 && (
+              <div>
+                <h3 className="font-semibold mb-2 flex items-center gap-2">
+                  <BookOpen className="h-4 w-4 text-amber-500" />
+                  Linked Books
+                </h3>
+                <div className="space-y-2">
+                  {linkedBooks.map((book) => (
+                    <Link
+                      key={book.id}
+                      to={`/book/${book.id}`}
+                      className="flex items-center gap-3 p-2 rounded-lg bg-muted/50 hover:bg-muted transition-colors"
+                    >
+                      {book.cover_url ? (
+                        <img
+                          src={book.cover_url}
+                          alt={book.title}
+                          className="w-10 h-14 object-cover rounded"
+                        />
+                      ) : (
+                        <div className="w-10 h-14 bg-amber-500/20 rounded flex items-center justify-center">
+                          <BookOpen className="h-4 w-4 text-amber-500" />
+                        </div>
+                      )}
+                      <div className="flex-1 min-w-0">
+                        <p className="font-medium text-sm truncate">{book.title}</p>
+                        {book.description && (
+                          <p className="text-xs text-muted-foreground truncate">{book.description}</p>
+                        )}
+                      </div>
+                    </Link>
+                  ))}
+                </div>
               </div>
             )}
 
