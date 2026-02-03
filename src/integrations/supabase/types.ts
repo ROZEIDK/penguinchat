@@ -65,6 +65,115 @@ export type Database = {
         }
         Relationships: []
       }
+      book_chatbot_links: {
+        Row: {
+          book_id: string
+          chatbot_id: string
+          created_at: string
+          id: string
+        }
+        Insert: {
+          book_id: string
+          chatbot_id: string
+          created_at?: string
+          id?: string
+        }
+        Update: {
+          book_id?: string
+          chatbot_id?: string
+          created_at?: string
+          id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "book_chatbot_links_book_id_fkey"
+            columns: ["book_id"]
+            isOneToOne: false
+            referencedRelation: "books"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "book_chatbot_links_chatbot_id_fkey"
+            columns: ["chatbot_id"]
+            isOneToOne: false
+            referencedRelation: "chatbots"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      book_comments: {
+        Row: {
+          book_id: string
+          content: string
+          created_at: string
+          id: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          book_id: string
+          content: string
+          created_at?: string
+          id?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          book_id?: string
+          content?: string
+          created_at?: string
+          id?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "book_comments_book_id_fkey"
+            columns: ["book_id"]
+            isOneToOne: false
+            referencedRelation: "books"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      book_reviews: {
+        Row: {
+          book_id: string
+          created_at: string
+          id: string
+          rating: number
+          review_text: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          book_id: string
+          created_at?: string
+          id?: string
+          rating: number
+          review_text?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          book_id?: string
+          created_at?: string
+          id?: string
+          rating?: number
+          review_text?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "book_reviews_book_id_fkey"
+            columns: ["book_id"]
+            isOneToOne: false
+            referencedRelation: "books"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       bookmarks: {
         Row: {
           created_at: string
@@ -92,6 +201,51 @@ export type Database = {
           updated_at?: string
           url?: string
           user_id?: string
+        }
+        Relationships: []
+      }
+      books: {
+        Row: {
+          content: string | null
+          cover_url: string | null
+          created_at: string
+          creator_id: string
+          description: string | null
+          id: string
+          is_public: boolean | null
+          pdf_url: string | null
+          tags: string[] | null
+          title: string
+          total_views: number | null
+          updated_at: string
+        }
+        Insert: {
+          content?: string | null
+          cover_url?: string | null
+          created_at?: string
+          creator_id: string
+          description?: string | null
+          id?: string
+          is_public?: boolean | null
+          pdf_url?: string | null
+          tags?: string[] | null
+          title: string
+          total_views?: number | null
+          updated_at?: string
+        }
+        Update: {
+          content?: string | null
+          cover_url?: string | null
+          created_at?: string
+          creator_id?: string
+          description?: string | null
+          id?: string
+          is_public?: boolean | null
+          pdf_url?: string | null
+          tags?: string[] | null
+          title?: string
+          total_views?: number | null
+          updated_at?: string
         }
         Relationships: []
       }
