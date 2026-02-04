@@ -49,16 +49,27 @@ export default function Auth() {
 
       if (existingProgress) return; // Already tracked
 
-      // Create progress for today
+      // Check if user is premium
+      const { data: subscriptionData } = await supabase
+        .from("user_subscriptions")
+        .select("is_premium")
+        .eq("user_id", userId)
+        .maybeSingle();
+
+      const isPremium = subscriptionData?.is_premium || false;
+      const loginBonus = isPremium ? 250 : 50;
+
+      // Create progress for today (mark as completed and claimed)
       await supabase.from("user_task_progress").insert({
         user_id: userId,
         task_id: loginTask.id,
         current_count: 1,
         is_completed: true,
+        is_claimed: true,
         reset_date: today,
       });
 
-      // Ensure user has coins record
+      // Ensure user has coins record and add login bonus
       const { data: coinsData } = await supabase
         .from("user_coins")
         .select("*")
@@ -68,9 +79,31 @@ export default function Auth() {
       if (!coinsData) {
         await supabase.from("user_coins").insert({
           user_id: userId,
-          balance: 100, // Starting balance
+          balance: 100 + loginBonus,
+          total_earned: loginBonus,
         });
+      } else {
+        await supabase
+          .from("user_coins")
+          .update({
+            balance: coinsData.balance + loginBonus,
+            total_earned: (coinsData.total_earned || 0) + loginBonus,
+          })
+          .eq("user_id", userId);
       }
+
+      // Log the transaction
+      await supabase.from("coin_transactions").insert({
+        user_id: userId,
+        amount: loginBonus,
+        transaction_type: "daily_task",
+        description: `Daily login bonus${isPremium ? " (Premium)" : ""}`,
+      });
+
+      toast({
+        title: `+${loginBonus} Coins!`,
+        description: `Daily login bonus${isPremium ? " (Premium 5x)" : ""}`,
+      });
     } catch (error) {
       console.error("Error tracking login:", error);
     }
