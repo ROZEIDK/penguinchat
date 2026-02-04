@@ -121,6 +121,8 @@ export default function ChatInterface() {
         .eq("chatbot_id", chatbotId)
         .maybeSingle();
 
+      let isNewConversation = false;
+
       if (!convData) {
         const { data: newConv, error: convError } = await supabase
           .from("conversations")
@@ -133,9 +135,7 @@ export default function ChatInterface() {
 
         if (convError) throw convError;
         convData = newConv;
-        
-        // Track unique chat for coins (new conversation with a different chatbot)
-        updateTaskProgress("unique_chats", 1);
+        isNewConversation = true;
 
         // Add intro message
         const { data: introMsg } = await supabase
@@ -169,6 +169,18 @@ export default function ChatInterface() {
       }
 
       setConversation(convData);
+
+      // Track unique character for daily task (any character, not just new ones)
+      // Check if we've already counted this character today
+      const today = new Date().toISOString().split("T")[0];
+      const storageKey = `unique_chats_${userId}_${today}`;
+      const trackedChats = JSON.parse(localStorage.getItem(storageKey) || "[]");
+      
+      if (!trackedChats.includes(chatbotId)) {
+        trackedChats.push(chatbotId);
+        localStorage.setItem(storageKey, JSON.stringify(trackedChats));
+        updateTaskProgress("unique_chats", 1);
+      }
     } catch (error: any) {
       toast({
         title: "Error",
