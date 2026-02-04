@@ -33,6 +33,11 @@ interface Message {
   created_at: string;
 }
 
+interface CharacterInfo {
+  name: string;
+  avatar_url: string | null;
+}
+
 interface Chatbot {
   id: string;
   name: string;
@@ -45,12 +50,17 @@ interface Chatbot {
   is_mature: boolean | null;
   image_generation_model: string | null;
   tags: string[] | null;
+  has_second_character: boolean | null;
+  second_character_name: string | null;
+  second_character_avatar_url: string | null;
+  linked_chatbot_id: string | null;
 }
 
 export default function ChatInterface() {
   const { chatbotId } = useParams();
   const [user, setUser] = useState<any>(null);
   const [chatbot, setChatbot] = useState<Chatbot | null>(null);
+  const [linkedCharacterAvatar, setLinkedCharacterAvatar] = useState<string | null>(null);
   const [conversation, setConversation] = useState<any>(null);
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
@@ -101,6 +111,19 @@ export default function ChatInterface() {
 
       if (chatbotError) throw chatbotError;
       setChatbot(chatbotData);
+
+      // If it's a linked dual-character, fetch the linked chatbot's avatar
+      if (chatbotData.has_second_character && chatbotData.linked_chatbot_id) {
+        const { data: linkedBot } = await supabase
+          .from("chatbots")
+          .select("avatar_url")
+          .eq("id", chatbotData.linked_chatbot_id)
+          .single();
+        
+        if (linkedBot?.avatar_url) {
+          setLinkedCharacterAvatar(linkedBot.avatar_url);
+        }
+      }
 
       // Record view
       await supabase.from("chatbot_views").insert({
@@ -384,6 +407,66 @@ export default function ChatInterface() {
     });
   };
 
+  // Check if a message is a dual-character response
+  const isDualCharacterMessage = (content: string): boolean => {
+    return content.includes("\n\n---\n\n") && content.includes("**") && content.includes(":**");
+  };
+
+  // Parse dual-character message into separate parts
+  const parseDualCharacterMessage = (content: string): { name: string; content: string; avatar_url: string | null }[] => {
+    const parts = content.split("\n\n---\n\n");
+    return parts.map((part, index) => {
+      const match = part.match(/^\*\*(.+?):\*\*\n([\s\S]*)$/);
+      if (match) {
+        const charName = match[1];
+        const charContent = match[2];
+        // Determine avatar based on character name and position
+        let avatar_url = null;
+        if (chatbot) {
+          const mainName = chatbot.name.replace(/\s*\([^)]*\)\s*/g, '').trim();
+          if (charName === mainName || index === 0) {
+            avatar_url = chatbot.avatar_url;
+          } else {
+            // Use inline second character avatar, or linked character avatar
+            avatar_url = chatbot.second_character_avatar_url || linkedCharacterAvatar;
+          }
+        }
+        return { name: charName, content: charContent, avatar_url };
+      }
+      return { name: "Character", content: part, avatar_url: null };
+    });
+  };
+
+  // Render a single character's message bubble
+  const renderCharacterBubble = (
+    charName: string,
+    content: string,
+    avatarUrl: string | null,
+    isSecond: boolean = false
+  ) => (
+    <div className={`flex gap-3 ${isSecond ? "mt-3" : ""}`}>
+      {avatarUrl ? (
+        <img
+          src={avatarUrl}
+          alt={charName}
+          className="w-10 h-10 rounded-lg object-cover shrink-0"
+        />
+      ) : (
+        <div className="w-10 h-10 rounded-lg bg-gradient-primary flex items-center justify-center shrink-0">
+          <span className="text-sm font-bold text-primary-foreground">
+            {charName[0]}
+          </span>
+        </div>
+      )}
+      <div className="flex flex-col gap-1 max-w-[70%]">
+        <span className="text-xs font-medium text-muted-foreground">{charName}</span>
+        <div className="px-4 py-3 rounded-2xl bg-card/80 backdrop-blur-lg border border-border">
+          {formatMessage(content)}
+        </div>
+      </div>
+    </div>
+  );
+
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background">
@@ -508,41 +591,88 @@ export default function ChatInterface() {
       {/* Messages */}
       <div className="flex-1 overflow-y-auto p-4">
         <div className="max-w-4xl mx-auto space-y-4">
-          {messages.map((msg) => (
-            <div
-              key={msg.id}
-              className={`flex gap-3 group ${
-                msg.role === "user" ? "justify-end" : "justify-start"
-              }`}
-            >
-              {msg.role === "assistant" && chatbot.avatar_url && (
-                <img
-                  src={chatbot.avatar_url}
-                  alt={chatbot.name}
-                  className="w-10 h-10 rounded-lg object-cover"
-                />
-              )}
-              <div className="flex items-start gap-2">
-                <div
-                  className={`px-4 py-3 rounded-2xl max-w-[70%] ${
-                    msg.role === "user"
-                      ? "bg-gradient-primary text-primary-foreground"
-                      : "bg-card/80 backdrop-blur-lg border border-border"
-                  }`}
-                >
-                  {formatMessage(msg.content)}
+          {messages.map((msg) => {
+            // Check if this is a dual-character response
+            if (msg.role === "assistant" && isDualCharacterMessage(msg.content)) {
+              const characterParts = parseDualCharacterMessage(msg.content);
+              return (
+                <div key={msg.id} className="group">
+                  <div className="space-y-4">
+                    {characterParts.map((charPart, idx) => (
+                      <div key={idx} className="flex gap-3">
+                        {charPart.avatar_url ? (
+                          <img
+                            src={charPart.avatar_url}
+                            alt={charPart.name}
+                            className="w-10 h-10 rounded-lg object-cover shrink-0"
+                          />
+                        ) : (
+                          <div className="w-10 h-10 rounded-lg bg-gradient-primary flex items-center justify-center shrink-0">
+                            <span className="text-sm font-bold text-primary-foreground">
+                              {charPart.name[0]}
+                            </span>
+                          </div>
+                        )}
+                        <div className="flex flex-col gap-1 max-w-[70%]">
+                          <span className="text-xs font-medium text-primary">{charPart.name}</span>
+                          <div className="px-4 py-3 rounded-2xl bg-card/80 backdrop-blur-lg border border-border">
+                            {formatMessage(charPart.content)}
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                  <div className="flex justify-end mt-2">
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="opacity-0 group-hover:opacity-100 transition-opacity h-8 w-8"
+                      onClick={() => confirmDeleteMessage(msg)}
+                    >
+                      <Trash2 className="h-3 w-3 text-muted-foreground" />
+                    </Button>
+                  </div>
                 </div>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="opacity-0 group-hover:opacity-100 transition-opacity h-8 w-8"
-                  onClick={() => confirmDeleteMessage(msg)}
-                >
-                  <Trash2 className="h-3 w-3 text-muted-foreground" />
-                </Button>
+              );
+            }
+
+            // Regular single-character message
+            return (
+              <div
+                key={msg.id}
+                className={`flex gap-3 group ${
+                  msg.role === "user" ? "justify-end" : "justify-start"
+                }`}
+              >
+                {msg.role === "assistant" && chatbot.avatar_url && (
+                  <img
+                    src={chatbot.avatar_url}
+                    alt={chatbot.name}
+                    className="w-10 h-10 rounded-lg object-cover"
+                  />
+                )}
+                <div className="flex items-start gap-2">
+                  <div
+                    className={`px-4 py-3 rounded-2xl max-w-[70%] ${
+                      msg.role === "user"
+                        ? "bg-gradient-primary text-primary-foreground"
+                        : "bg-card/80 backdrop-blur-lg border border-border"
+                    }`}
+                  >
+                    {formatMessage(msg.content)}
+                  </div>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="opacity-0 group-hover:opacity-100 transition-opacity h-8 w-8"
+                    onClick={() => confirmDeleteMessage(msg)}
+                  >
+                    <Trash2 className="h-3 w-3 text-muted-foreground" />
+                  </Button>
+                </div>
               </div>
-            </div>
-          ))}
+            );
+          })}
           {sending && (
             <div className="flex gap-3">
               {chatbot.avatar_url && (
