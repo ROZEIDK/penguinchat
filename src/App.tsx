@@ -22,6 +22,7 @@ import Subscribe from "./pages/Subscribe";
 import Help from "./pages/Help";
 import CreateBook from "./pages/CreateBook";
 import BookDetail from "./pages/BookDetail";
+ import EditBook from "./pages/EditBook";
 
 const queryClient = new QueryClient();
 
@@ -50,6 +51,7 @@ const App = () => (
             <Route path="/help" element={<Help />} />
             <Route path="/create-book" element={<CreateBook />} />
             <Route path="/book/:bookId" element={<BookDetail />} />
+             <Route path="/edit-book/:bookId" element={<EditBook />} />
             <Route path="*" element={<NotFound />} />
           </Routes>
         </Layout>
