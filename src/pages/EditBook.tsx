@@ -8,14 +8,32 @@
  import { Switch } from "@/components/ui/switch";
  import { useToast } from "@/hooks/use-toast";
  import { Upload, Loader2, X, FileText, BookOpen, Link2 } from "lucide-react";
+ import { Sparkles, Users } from "lucide-react";
  import { Badge } from "@/components/ui/badge";
  import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
  import { Checkbox } from "@/components/ui/checkbox";
+ import {
+   Dialog,
+   DialogContent,
+   DialogDescription,
+   DialogHeader,
+   DialogTitle,
+ } from "@/components/ui/dialog";
  
  interface LinkedChatbot {
    id: string;
    name: string;
    avatar_url: string | null;
+ }
+ 
+ interface ExtractedCharacter {
+   name: string;
+   description: string;
+   backstory: string;
+   dialogue_style: string;
+   gender?: string;
+   personality_tags?: string[];
+   intro_message: string;
  }
  
  export default function EditBook() {
@@ -27,6 +45,11 @@
    const [uploadingPdf, setUploadingPdf] = useState(false);
    const [myChatbots, setMyChatbots] = useState<LinkedChatbot[]>([]);
    const [selectedChatbots, setSelectedChatbots] = useState<string[]>([]);
+   const [extracting, setExtracting] = useState(false);
+   const [extractedCharacters, setExtractedCharacters] = useState<ExtractedCharacter[]>([]);
+   const [showCharacterDialog, setShowCharacterDialog] = useState(false);
+   const [creatingCharacters, setCreatingCharacters] = useState(false);
+   const [selectedCharacterIndexes, setSelectedCharacterIndexes] = useState<number[]>([]);
    const navigate = useNavigate();
    const { toast } = useToast();
  
@@ -211,6 +234,173 @@
          ? prev.filter((id) => id !== chatbotId)
          : [...prev, chatbotId]
      );
+   };
+ 
+   const handleExtractCharacters = async () => {
+     if (!formData.content && !formData.pdf_url) {
+       toast({
+         title: "No content",
+         description: "Please add book content before extracting characters.",
+         variant: "destructive",
+       });
+       return;
+     }
+ 
+     setExtracting(true);
+     try {
+       const response = await fetch(
+         `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/extract-characters`,
+         {
+           method: "POST",
+           headers: {
+             "Content-Type": "application/json",
+             Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+           },
+           body: JSON.stringify({
+             bookTitle: formData.title,
+             bookDescription: formData.description,
+             bookContent: formData.content,
+           }),
+         }
+       );
+ 
+       if (response.status === 429) {
+         toast({
+           title: "Rate limited",
+           description: "Too many requests. Please try again in a moment.",
+           variant: "destructive",
+         });
+         return;
+       }
+ 
+       if (response.status === 402) {
+         toast({
+           title: "Credits required",
+           description: "Please add AI credits to continue.",
+           variant: "destructive",
+         });
+         return;
+       }
+ 
+       if (!response.ok) {
+         throw new Error("Failed to extract characters");
+       }
+ 
+       const data = await response.json();
+       if (data.characters && data.characters.length > 0) {
+         setExtractedCharacters(data.characters);
+         setSelectedCharacterIndexes(data.characters.map((_: any, i: number) => i));
+         setShowCharacterDialog(true);
+       } else {
+         toast({
+           title: "No characters found",
+           description: "Could not identify any characters in the book content.",
+           variant: "destructive",
+         });
+       }
+     } catch (error: any) {
+       toast({
+         title: "Extraction failed",
+         description: error.message,
+         variant: "destructive",
+       });
+     } finally {
+       setExtracting(false);
+     }
+   };
+ 
+   const toggleCharacterSelection = (index: number) => {
+     setSelectedCharacterIndexes((prev) =>
+       prev.includes(index)
+         ? prev.filter((i) => i !== index)
+         : [...prev, index]
+     );
+   };
+ 
+   const handleCreateCharacters = async () => {
+     if (selectedCharacterIndexes.length === 0) {
+       toast({
+         title: "No characters selected",
+         description: "Please select at least one character to create.",
+         variant: "destructive",
+       });
+       return;
+     }
+ 
+     setCreatingCharacters(true);
+     try {
+       const charactersToCreate = selectedCharacterIndexes.map(
+         (i) => extractedCharacters[i]
+       );
+ 
+       const createdIds: string[] = [];
+ 
+       for (const char of charactersToCreate) {
+         const { data: chatbot, error } = await supabase
+           .from("chatbots")
+           .insert({
+             name: char.name,
+             description: char.description,
+             backstory: char.backstory,
+             dialogue_style: char.dialogue_style,
+             gender: char.gender || null,
+             tags: char.personality_tags || [],
+             intro_message: char.intro_message,
+             creator_id: user.id,
+             is_public: formData.is_public,
+           })
+           .select()
+           .single();
+ 
+         if (error) {
+           console.error("Error creating character:", error);
+           continue;
+         }
+ 
+         if (chatbot) {
+           createdIds.push(chatbot.id);
+ 
+           // Link the created chatbot to this book
+           await supabase.from("book_chatbot_links").insert({
+             book_id: bookId,
+             chatbot_id: chatbot.id,
+           });
+         }
+       }
+ 
+       if (createdIds.length > 0) {
+         toast({
+           title: "Characters created!",
+           description: `Successfully created ${createdIds.length} character(s) from your book.`,
+         });
+         setShowCharacterDialog(false);
+         setExtractedCharacters([]);
+         
+         // Refresh linked chatbots
+         fetchMyChatbots(user.id);
+         const { data: links } = await supabase
+           .from("book_chatbot_links")
+           .select("chatbot_id")
+           .eq("book_id", bookId);
+         if (links) {
+           setSelectedChatbots(links.map((link) => link.chatbot_id));
+         }
+       } else {
+         toast({
+           title: "Creation failed",
+           description: "Could not create any characters. Please try again.",
+           variant: "destructive",
+         });
+       }
+     } catch (error: any) {
+       toast({
+         title: "Error",
+         description: error.message,
+         variant: "destructive",
+       });
+     } finally {
+       setCreatingCharacters(false);
+     }
    };
  
    const handleSubmit = async (e: React.FormEvent) => {
@@ -510,6 +700,36 @@
              </div>
            )}
  
+         {/* Convert to Character */}
+         <div className="bg-gradient-card rounded-xl p-6 border border-border shadow-card">
+           <div className="flex items-center gap-2 mb-4">
+             <Sparkles className="h-5 w-5 text-amber-500" />
+             <Label>Convert to Characters</Label>
+           </div>
+           <p className="text-sm text-muted-foreground mb-4">
+             Use AI to extract characters from your book and automatically create chatbots with their backstory, personality, and dialogue style.
+           </p>
+           <Button
+             type="button"
+             variant="outline"
+             onClick={handleExtractCharacters}
+             disabled={extracting || (!formData.content && !formData.pdf_url)}
+             className="w-full border-amber-500/50 text-amber-500 hover:bg-amber-500/10"
+           >
+             {extracting ? (
+               <>
+                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                 Analyzing book...
+               </>
+             ) : (
+               <>
+                 <Users className="mr-2 h-4 w-4" />
+                 Extract Characters from Book
+               </>
+             )}
+           </Button>
+         </div>
+ 
            <Button
              type="submit"
              disabled={loading}
@@ -529,6 +749,92 @@
            </Button>
          </form>
        </div>
+       
+       {/* Character Selection Dialog */}
+       <Dialog open={showCharacterDialog} onOpenChange={setShowCharacterDialog}>
+         <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
+           <DialogHeader>
+             <DialogTitle className="flex items-center gap-2">
+               <Users className="h-5 w-5 text-primary" />
+               Characters Found
+             </DialogTitle>
+             <DialogDescription>
+               Select which characters you want to create as chatbots. They will be linked to this book automatically.
+             </DialogDescription>
+           </DialogHeader>
+ 
+           <div className="space-y-4 mt-4">
+             {extractedCharacters.map((char, index) => (
+               <label
+                 key={index}
+                 className={`block p-4 rounded-lg border cursor-pointer transition-all ${
+                   selectedCharacterIndexes.includes(index)
+                     ? "border-primary bg-primary/5"
+                     : "border-border hover:border-primary/50"
+                 }`}
+               >
+                 <div className="flex items-start gap-3">
+                   <Checkbox
+                     checked={selectedCharacterIndexes.includes(index)}
+                     onCheckedChange={() => toggleCharacterSelection(index)}
+                     className="mt-1"
+                   />
+                   <div className="flex-1 min-w-0">
+                     <div className="flex items-center gap-2 mb-1">
+                       <h3 className="font-semibold text-foreground">{char.name}</h3>
+                       {char.gender && char.gender !== "unknown" && (
+                         <Badge variant="secondary" className="text-xs">
+                           {char.gender}
+                         </Badge>
+                       )}
+                     </div>
+                     <p className="text-sm text-muted-foreground mb-2">
+                       {char.description}
+                     </p>
+                     <div className="flex flex-wrap gap-1 mb-2">
+                       {char.personality_tags?.map((tag) => (
+                         <Badge key={tag} variant="outline" className="text-xs">
+                           {tag}
+                         </Badge>
+                       ))}
+                     </div>
+                     <p className="text-xs text-muted-foreground italic">
+                       "{char.intro_message?.substring(0, 100)}..."
+                     </p>
+                   </div>
+                 </div>
+               </label>
+             ))}
+           </div>
+ 
+           <div className="flex gap-3 mt-6">
+             <Button
+               variant="outline"
+               onClick={() => setShowCharacterDialog(false)}
+               className="flex-1"
+             >
+               Cancel
+             </Button>
+             <Button
+               onClick={handleCreateCharacters}
+               disabled={creatingCharacters || selectedCharacterIndexes.length === 0}
+               className="flex-1 bg-gradient-to-r from-amber-500 to-orange-500 hover:opacity-90"
+             >
+               {creatingCharacters ? (
+                 <>
+                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                   Creating...
+                 </>
+               ) : (
+                 <>
+                   <Sparkles className="mr-2 h-4 w-4" />
+                   Create {selectedCharacterIndexes.length} Character(s)
+                 </>
+               )}
+             </Button>
+           </div>
+         </DialogContent>
+       </Dialog>
      </div>
    );
  }
