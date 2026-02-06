@@ -20,6 +20,7 @@ import {
 } from "@/components/ui/select";
 import { Tables } from "@/integrations/supabase/types";
 import SecondCharacterForm from "@/components/SecondCharacterForm";
+import CharacterAppearanceField from "@/components/CharacterAppearanceField";
 
 export default function CreateChatbot() {
   const [user, setUser] = useState<any>(null);
@@ -44,6 +45,7 @@ export default function CreateChatbot() {
     dialogue_style: "",
     avatar_url: "",
     image_generation_model: "gemini",
+    character_appearance: "",
   });
 
   const [secondCharacterData, setSecondCharacterData] = useState({
@@ -179,6 +181,7 @@ export default function CreateChatbot() {
         ...formData,
         tags,
         creator_id: user.id,
+        character_appearance: formData.character_appearance || null,
         has_second_character: secondCharacterData.has_second_character,
         second_character_type: secondCharacterData.second_character_type,
         second_character_name: secondCharacterData.second_character_name || null,
@@ -368,6 +371,16 @@ export default function CreateChatbot() {
                 </SelectContent>
               </Select>
             </div>
+
+            {formData.image_generation_model === "stable-diffusion" && (
+              <CharacterAppearanceField
+                value={formData.character_appearance}
+                onChange={(value) => setFormData({ ...formData, character_appearance: value })}
+                characterName={formData.name}
+                characterDescription={formData.description}
+                characterGender={formData.gender}
+              />
+            )}
 
             <div>
               <Label htmlFor="name">Name *</Label>

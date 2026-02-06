@@ -18,6 +18,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import SecondCharacterForm from "@/components/SecondCharacterForm";
+import CharacterAppearanceField from "@/components/CharacterAppearanceField";
 
 export default function EditChatbot() {
   const { chatbotId } = useParams();
@@ -40,6 +41,7 @@ export default function EditChatbot() {
     dialogue_style: "",
     avatar_url: "",
     image_generation_model: "gemini",
+    character_appearance: "",
   });
 
   const [secondCharacterData, setSecondCharacterData] = useState({
@@ -100,6 +102,7 @@ export default function EditChatbot() {
         dialogue_style: data.dialogue_style || "",
         avatar_url: data.avatar_url || "",
         image_generation_model: data.image_generation_model || "gemini",
+        character_appearance: data.character_appearance || "",
       });
 
       setSecondCharacterData({
@@ -206,6 +209,7 @@ export default function EditChatbot() {
         .update({
           ...formData,
           tags,
+          character_appearance: formData.character_appearance || null,
           has_second_character: secondCharacterData.has_second_character,
           second_character_type: secondCharacterData.second_character_type,
           second_character_name: secondCharacterData.second_character_name || null,
@@ -335,6 +339,16 @@ export default function EditChatbot() {
                 </SelectContent>
               </Select>
             </div>
+
+            {formData.image_generation_model === "stable-diffusion" && (
+              <CharacterAppearanceField
+                value={formData.character_appearance}
+                onChange={(value) => setFormData({ ...formData, character_appearance: value })}
+                characterName={formData.name}
+                characterDescription={formData.description}
+                characterGender={formData.gender}
+              />
+            )}
 
             <div>
               <Label htmlFor="name">Name *</Label>
