@@ -231,10 +231,15 @@ serve(async (req) => {
           );
         }
 
-        console.log('Using Stable Diffusion (FLUX.1-schnell) for image generation');
+      console.log('Using Stable Diffusion (FLUX.1-schnell) for image generation');
         
-        const fullPrompt = `Anime style artwork: ${imagePrompt}. High quality anime art, detailed, vibrant colors, professional anime illustration.`;
+        // Include character appearance description if available for better consistency
+        const appearanceDesc = chatbot.character_appearance 
+          ? ` Character appearance: ${chatbot.character_appearance}.` 
+          : '';
+        const fullPrompt = `Anime style artwork: ${imagePrompt}.${appearanceDesc} High quality anime art, detailed, vibrant colors, professional anime illustration.`;
         console.log('Stable Diffusion prompt:', fullPrompt);
+        console.log('Character appearance included:', !!chatbot.character_appearance);
         
         try {
           const { HfInference } = await import('https://esm.sh/@huggingface/inference@3.7.0');
