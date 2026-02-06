@@ -9,7 +9,7 @@ import { Switch } from "@/components/ui/switch";
 import { useToast } from "@/hooks/use-toast";
 import { useCoins } from "@/hooks/useCoins";
 import { useSubscription } from "@/hooks/useSubscription";
-import { Upload, Loader2, X, Eye, EyeOff, MessageCircle, HelpCircle, Crown, Lock } from "lucide-react";
+import { Upload, Loader2, X, Eye, EyeOff, MessageCircle, HelpCircle, Crown, Lock, Sparkles } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import {
   Select,
@@ -26,6 +26,7 @@ export default function CreateChatbot() {
   const [user, setUser] = useState<any>(null);
   const [loading, setLoading] = useState(false);
   const [uploading, setUploading] = useState(false);
+  const [generatingDetails, setGeneratingDetails] = useState(false);
   const [showPrivate, setShowPrivate] = useState(false);
   const [privateCharacters, setPrivateCharacters] = useState<Tables<"chatbots">[]>([]);
   const [loadingPrivate, setLoadingPrivate] = useState(false);
@@ -145,6 +146,61 @@ export default function CreateChatbot() {
 
   const removeTag = (tagToRemove: string) => {
     setTags(tags.filter((tag) => tag !== tagToRemove));
+  };
+
+  const canGenerateDetails = formData.name && formData.intro_message;
+
+  const handleGenerateDetails = async () => {
+    if (!canGenerateDetails) {
+      toast({
+        title: "Missing required info",
+        description: "Please fill in at least the Name and First Message to generate details.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setGeneratingDetails(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("generate-character-details", {
+        body: {
+          name: formData.name,
+          gender: formData.gender,
+          dialogueStyle: formData.dialogue_style,
+          introMessage: formData.intro_message,
+          avatarDescription: formData.avatar_url ? "Character has an avatar image" : null,
+        },
+      });
+
+      if (error) throw error;
+
+      if (data.error) {
+        throw new Error(data.error);
+      }
+
+      // Update form with generated details
+      setFormData((prev) => ({
+        ...prev,
+        description: data.description || prev.description,
+        backstory: data.backstory || prev.backstory,
+      }));
+
+      // Set tags if generated
+      if (data.tags && Array.isArray(data.tags)) {
+        setTags(data.tags.slice(0, 5));
+      }
+
+      toast({ title: "Character details generated!" });
+    } catch (error: any) {
+      console.error("Generate details error:", error);
+      toast({
+        title: "Generation failed",
+        description: error.message || "Failed to generate character details",
+        variant: "destructive",
+      });
+    } finally {
+      setGeneratingDetails(false);
+    }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -394,26 +450,25 @@ export default function CreateChatbot() {
             </div>
 
             <div>
-              <Label htmlFor="description">Description *</Label>
-              <Textarea
-                id="description"
-                value={formData.description}
-                onChange={(e) =>
-                  setFormData({ ...formData, description: e.target.value })
-                }
-                required
-                className="mt-1"
-                rows={3}
-              />
-            </div>
-
-            <div>
               <Label htmlFor="gender">Gender</Label>
               <Input
                 id="gender"
                 value={formData.gender}
                 onChange={(e) => setFormData({ ...formData, gender: e.target.value })}
                 className="mt-1"
+              />
+            </div>
+
+            <div>
+              <Label htmlFor="dialogue_style">Dialogue Style</Label>
+              <Input
+                id="dialogue_style"
+                value={formData.dialogue_style}
+                onChange={(e) =>
+                  setFormData({ ...formData, dialogue_style: e.target.value })
+                }
+                className="mt-1"
+                placeholder="e.g., Formal, Casual, Poetic"
               />
             </div>
 
@@ -432,6 +487,56 @@ export default function CreateChatbot() {
               />
             </div>
 
+            {/* AI Generate Button */}
+            <div className="border-t border-b border-border py-4 my-2">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="font-medium">Generate Details with AI</p>
+                  <p className="text-sm text-muted-foreground">
+                    Auto-fill description, backstory, and tags based on the info above
+                  </p>
+                </div>
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={handleGenerateDetails}
+                  disabled={generatingDetails || !canGenerateDetails}
+                  className="flex items-center gap-2"
+                >
+                  {generatingDetails ? (
+                    <>
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                      Generating...
+                    </>
+                  ) : (
+                    <>
+                      <Sparkles className="h-4 w-4" />
+                      Generate with AI
+                    </>
+                  )}
+                </Button>
+              </div>
+              {!canGenerateDetails && (
+                <p className="text-xs text-muted-foreground mt-2">
+                  Fill in Name and First Message to enable AI generation
+                </p>
+              )}
+            </div>
+
+            <div>
+              <Label htmlFor="description">Description *</Label>
+              <Textarea
+                id="description"
+                value={formData.description}
+                onChange={(e) =>
+                  setFormData({ ...formData, description: e.target.value })
+                }
+                required
+                className="mt-1"
+                rows={3}
+              />
+            </div>
+
             <div>
               <Label htmlFor="backstory">Background Story</Label>
               <Textarea
@@ -443,19 +548,6 @@ export default function CreateChatbot() {
                 className="mt-1"
                 rows={3}
                 placeholder="How you and the chatbot met"
-              />
-            </div>
-
-            <div>
-              <Label htmlFor="dialogue_style">Dialogue Style</Label>
-              <Input
-                id="dialogue_style"
-                value={formData.dialogue_style}
-                onChange={(e) =>
-                  setFormData({ ...formData, dialogue_style: e.target.value })
-                }
-                className="mt-1"
-                placeholder="e.g., Formal, Casual, Poetic"
               />
             </div>
 
