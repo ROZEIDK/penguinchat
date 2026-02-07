@@ -1,13 +1,13 @@
 import { useState, useEffect } from "react";
-import { useParams, useNavigate, Link } from "react-router-dom";
+import { useParams, useNavigate, Link, useSearchParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Loader2, MessageSquare, Eye, ArrowLeft, Star, User, BookOpen } from "lucide-react";
+import { Loader2, MessageSquare, Eye, ArrowLeft, Star, User, BookOpen, BookPlus } from "lucide-react";
 import { ChatbotCard } from "@/components/ChatbotCard";
 import { CommentsSection } from "@/components/CommentsSection";
-
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 interface Chatbot {
   id: string;
   name: string;
@@ -46,6 +46,13 @@ export default function ChatbotDetail() {
   const [loading, setLoading] = useState(true);
   const [averageRating, setAverageRating] = useState<number>(0);
   const [reviewCount, setReviewCount] = useState<number>(0);
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
+
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setCurrentUserId(session?.user?.id || null);
+    });
+  }, []);
 
   useEffect(() => {
     if (chatbotId) {
@@ -149,6 +156,17 @@ export default function ChatbotDetail() {
     );
   }
 
+  const isOwner = currentUserId && chatbot.creator_id === currentUserId;
+
+  const handleTurnIntoBook = () => {
+    const params = new URLSearchParams({
+      fromChatbot: chatbot.id,
+      title: `${chatbot.name}'s Story`,
+      description: chatbot.description || "",
+    });
+    navigate(`/create-book?${params.toString()}`);
+  };
+
   return (
     <div className="min-h-screen pb-20 md:pb-6">
       {/* Header */}
@@ -168,7 +186,25 @@ export default function ChatbotDetail() {
           >
             <ArrowLeft className="h-5 w-5" />
           </Button>
-          <h1 className="font-semibold text-lg truncate">{chatbot.name}</h1>
+          <h1 className="font-semibold text-lg truncate flex-1">{chatbot.name}</h1>
+          
+          {isOwner && (
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  variant="outline"
+                  size="icon"
+                  onClick={handleTurnIntoBook}
+                  className="shrink-0"
+                >
+                  <BookPlus className="h-5 w-5 text-amber-500" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>
+                <p>Turn into Book</p>
+              </TooltipContent>
+            </Tooltip>
+          )}
         </div>
       </div>
 
