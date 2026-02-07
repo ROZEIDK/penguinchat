@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -19,6 +19,7 @@ interface LinkedChatbot {
 }
 
 export default function CreateBook() {
+  const [searchParams] = useSearchParams();
   const [user, setUser] = useState<any>(null);
   const [loading, setLoading] = useState(false);
   const [uploading, setUploading] = useState(false);
@@ -28,14 +29,26 @@ export default function CreateBook() {
   const navigate = useNavigate();
   const { toast } = useToast();
 
+  // Get pre-filled data from URL params (when coming from chatbot)
+  const fromChatbotId = searchParams.get("fromChatbot");
+  const prefillTitle = searchParams.get("title") || "";
+  const prefillDescription = searchParams.get("description") || "";
+
   const [formData, setFormData] = useState({
-    title: "",
-    description: "",
+    title: prefillTitle,
+    description: prefillDescription,
     content: "",
     cover_url: "",
     pdf_url: "",
     is_public: true,
   });
+
+  // Auto-select the chatbot if coming from chatbot detail page
+  useEffect(() => {
+    if (fromChatbotId && !selectedChatbots.includes(fromChatbotId)) {
+      setSelectedChatbots([fromChatbotId]);
+    }
+  }, [fromChatbotId]);
 
   const [tags, setTags] = useState<string[]>([]);
   const [tagInput, setTagInput] = useState("");
