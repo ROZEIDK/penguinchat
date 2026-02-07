@@ -82,6 +82,14 @@ export default function ChatInterface() {
   // Coins hook for tracking chat progress
   const { updateTaskProgress } = useCoins(user?.id);
 
+  // Helper function to replace placeholders in text
+  const replacePlaceholders = (text: string, userName: string, charName: string): string => {
+    if (!text) return text;
+    return text
+      .replace(/\{user\}/gi, userName)
+      .replace(/\{char\}/gi, charName);
+  };
+
   const isOwner = user && chatbot && user.id === chatbot.creator_id;
 
   useEffect(() => {
@@ -102,15 +110,26 @@ export default function ChatInterface() {
   const initializeChat = async (userId: string) => {
     setLoading(true);
     try {
-      // Fetch chatbot
-      const { data: chatbotData, error: chatbotError } = await supabase
-        .from("chatbots")
-        .select("*")
-        .eq("id", chatbotId)
-        .single();
+      // Fetch chatbot and user profile in parallel
+      const [chatbotResult, profileResult] = await Promise.all([
+        supabase
+          .from("chatbots")
+          .select("*")
+          .eq("id", chatbotId)
+          .single(),
+        supabase
+          .from("profiles")
+          .select("username")
+          .eq("id", userId)
+          .single()
+      ]);
 
-      if (chatbotError) throw chatbotError;
+      if (chatbotResult.error) throw chatbotResult.error;
+      const chatbotData = chatbotResult.data;
       setChatbot(chatbotData);
+
+      const userName = profileResult.data?.username || "User";
+      const charName = chatbotData.name.replace(/\s*\([^)]*\)\s*/g, '').trim();
 
       // If it's a linked dual-character, fetch the linked chatbot's avatar
       if (chatbotData.has_second_character && chatbotData.linked_chatbot_id) {
@@ -160,13 +179,14 @@ export default function ChatInterface() {
         convData = newConv;
         isNewConversation = true;
 
-        // Add intro message
+        // Add intro message with placeholders replaced
+        const introContent = replacePlaceholders(chatbotData.intro_message, userName, charName);
         const { data: introMsg } = await supabase
           .from("messages")
           .insert({
             conversation_id: convData.id,
             role: "assistant",
-            content: chatbotData.intro_message,
+            content: introContent,
           })
           .select()
           .single();
@@ -244,6 +264,7 @@ export default function ChatInterface() {
         body: {
           messages: [...messages, userMsg],
           chatbot,
+          userId: user?.id,
         },
       });
 

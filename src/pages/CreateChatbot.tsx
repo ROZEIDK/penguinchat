@@ -485,6 +485,9 @@ export default function CreateChatbot() {
                 rows={2}
                 placeholder="What the chatbot says when someone starts a conversation"
               />
+              <p className="text-xs text-muted-foreground mt-1">
+                Use <code className="bg-muted px-1 rounded">{"{user}"}</code> for the user's name and <code className="bg-muted px-1 rounded">{"{char}"}</code> for the character's name
+              </p>
             </div>
 
             {/* AI Generate Button */}
@@ -549,6 +552,9 @@ export default function CreateChatbot() {
                 rows={3}
                 placeholder="How you and the chatbot met"
               />
+              <p className="text-xs text-muted-foreground mt-1">
+                Use <code className="bg-muted px-1 rounded">{"{user}"}</code> and <code className="bg-muted px-1 rounded">{"{char}"}</code> as placeholders
+              </p>
             </div>
 
             <div>

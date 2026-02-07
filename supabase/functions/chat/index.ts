@@ -6,19 +6,33 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
+// Helper function to replace placeholders in text
+function replacePlaceholders(text: string, userName: string, charName: string): string {
+  if (!text) return text;
+  return text
+    .replace(/\{user\}/gi, userName)
+    .replace(/\{char\}/gi, charName);
+}
+
 // Helper function to build system prompt for a character
-function buildSystemPrompt(character: any, isSecondCharacter = false): string {
+function buildSystemPrompt(character: any, userName: string, isSecondCharacter = false): string {
   const cleanName = character.name.replace(/\s*\([^)]*\)\s*/g, '').trim();
   const nameParts = cleanName.split(/\s+/);
   const nameVariations = [cleanName, ...nameParts].filter(n => n.length > 1);
   
-  let systemPrompt = `You are ${cleanName}. ${character.description}
+  // Replace placeholders in character fields
+  const description = replacePlaceholders(character.description, userName, cleanName);
+  const backstory = replacePlaceholders(character.backstory, userName, cleanName);
+  const dialogueStyle = replacePlaceholders(character.dialogue_style, userName, cleanName);
+  
+  let systemPrompt = `You are ${cleanName}. ${description}
 
 IDENTITY RULES (CRITICAL):
 - Your name is "${cleanName}". Any mentions of "${cleanName}" or variations like "${nameVariations.join('", "')}" in the backstory, first message, or user messages refer to YOU - not a different character.
 - If the user or backstory mentions your name or a shortened version of it, they are talking about YOU.
 - You are the ONLY character with this name. Do not create or reference other characters with similar names.
 - The backstory describes YOUR history with the user. Events in the backstory happened to YOU.
+- The user's name is "${userName}". When you want to address the user by name, use "${userName}".
 
 RESPONSE FORMAT RULES:
 1. Start with an action/emotion wrapped in asterisks (*) - ONE sentence describing your movement, expression, or emotion
@@ -31,12 +45,12 @@ Oh, you're finally here! I've been waiting for you. What took you so long?
 
 CHARACTER DETAILS:`;
   
-  if (character.backstory) {
-    systemPrompt += `\nBackstory (this is YOUR history, any name references are about YOU): ${character.backstory}`;
+  if (backstory) {
+    systemPrompt += `\nBackstory (this is YOUR history, any name references are about YOU): ${backstory}`;
   }
   
-  if (character.dialogue_style) {
-    systemPrompt += `\nDialogue Style: ${character.dialogue_style}`;
+  if (dialogueStyle) {
+    systemPrompt += `\nDialogue Style: ${dialogueStyle}`;
   }
   
   if (character.gender) {
@@ -49,7 +63,7 @@ CHARACTER DETAILS:`;
 
   systemPrompt += `
 
-Stay in character as ${cleanName}. Use the roleplay format with *actions* and short dialogue. Be expressive but concise.`;
+Stay in character as ${cleanName}. Use the roleplay format with *actions* and short dialogue. Be expressive but concise. Address the user as "${userName}" when appropriate.`;
 
   return systemPrompt;
 }
@@ -59,9 +73,10 @@ async function getCharacterResponse(
   character: any,
   messages: any[],
   LOVABLE_API_KEY: string,
+  userName: string,
   isSecondCharacter = false
 ): Promise<string> {
-  const systemPrompt = buildSystemPrompt(character, isSecondCharacter);
+  const systemPrompt = buildSystemPrompt(character, userName, isSecondCharacter);
   
   const conversationHistory = messages.map((msg: any) => ({
     role: msg.role,
@@ -99,12 +114,33 @@ serve(async (req) => {
   }
 
   try {
-    const { messages, chatbot } = await req.json();
+    const { messages, chatbot, userId } = await req.json();
     
     const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
     if (!LOVABLE_API_KEY) {
       throw new Error('LOVABLE_API_KEY is not configured');
     }
+
+    // Fetch user's username for placeholder replacement
+    let userName = 'User';
+    if (userId) {
+      const supabaseUrl = Deno.env.get('SUPABASE_URL');
+      const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
+      
+      if (supabaseUrl && supabaseKey) {
+        const supabase = createClient(supabaseUrl, supabaseKey);
+        const { data: profile } = await supabase
+          .from('profiles')
+          .select('username')
+          .eq('id', userId)
+          .single();
+        
+        if (profile?.username) {
+          userName = profile.username;
+        }
+      }
+    }
+    console.log('User name for placeholders:', userName);
 
     // Check if the last message is an image generation request
     const lastMessage = messages[messages.length - 1];
@@ -396,8 +432,8 @@ serve(async (req) => {
       try {
         // Get responses from both characters in parallel
         const [response1, response2] = await Promise.all([
-          getCharacterResponse(chatbot, messages, LOVABLE_API_KEY, false),
-          getCharacterResponse(secondCharacter, messages, LOVABLE_API_KEY, true),
+          getCharacterResponse(chatbot, messages, LOVABLE_API_KEY, userName, false),
+          getCharacterResponse(secondCharacter, messages, LOVABLE_API_KEY, userName, true),
         ]);
 
         // Combine responses with character names as headers
@@ -428,7 +464,7 @@ serve(async (req) => {
     // Regular single character chat response
     console.log('Calling Lovable AI with chatbot:', chatbot.name);
 
-    const aiResponse = await getCharacterResponse(chatbot, messages, LOVABLE_API_KEY, false);
+    const aiResponse = await getCharacterResponse(chatbot, messages, LOVABLE_API_KEY, userName, false);
 
     console.log('AI response generated successfully');
 
